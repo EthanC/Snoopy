@@ -1,0 +1,32 @@
+{
+    "reddit": {
+        "username": "Username",
+        "password": "Password",
+        "clientId": "ClientId",
+        "clientSecret": "ClientSecret"
+    },
+    "configurations": [
+        {
+            "enabled": true,
+            "subreddit": "MySubreddit",
+            "userFlairs": [
+                {
+                    "id": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+                    "name": "Alpha Testers"
+                },
+                {
+                    "id": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+                    "name": "Beta Testers"
+                }
+            ],
+            "lockComment": true,
+            "changeFlair": true,
+            "webhook": {
+                "enabled": true,
+                "url": "https://canary.discordapp.com/api/webhooks/XXXXXXXXXXXXXXXXXX/XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+                "name": "Snoopy",
+                "avatarUrl": "https://i.imgur.com/zbrkjFR.png"
+            }
+        }
+    ]
+}
