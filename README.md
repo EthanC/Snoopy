@@ -2,7 +2,7 @@
 
 ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/EthanC/Snoopy/main.yml?branch=main) ![Docker Pulls](https://img.shields.io/docker/pulls/ethanchrisp/snoopy?label=Docker%20Pulls) ![Docker Image Size (tag)](https://img.shields.io/docker/image-size/ethanchrisp/snoopy/latest?label=Docker%20Image%20Size)
 
-Snoopy is a Reddit user watcher that reports activity via Discord.
+Snoopy is a Reddit user watcher that stickies comments and reports activity via Discord.
 
 <p align="center">
     <img src="https://i.imgur.com/x3eLTpA.png" draggable="false">
