@@ -1,30 +1,65 @@
 # Snoopy
 
-Snoopy is a Redditor watching service which tracks specific user replies in a thread and notifies via Discord.
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/EthanC/Snoopy/main.yml?branch=main) ![Docker Pulls](https://img.shields.io/docker/pulls/ethanchrisp/snoopy?label=Docker%20Pulls) ![Docker Image Size (tag)](https://img.shields.io/docker/image-size/ethanchrisp/snoopy/latest?label=Docker%20Image%20Size)
+
+Snoopy is a Reddit user watcher that reports activity via Discord.
 
 <p align="center">
-    <img src="https://i.imgur.com/duIOLWL.png" width="650px" draggable="false">
+    <img src="https://i.imgur.com/x3eLTpA.png" draggable="false">
 </p>
 
-## Requirements
+## Setup
 
--   [Python 3.8](https://www.python.org/downloads/)
--   [praw](https://praw.readthedocs.io/en/latest/getting_started/installation.html)
--   [httpx](https://www.python-httpx.org/)
--   [coloredlogs](https://coloredlogs.readthedocs.io/en/latest/readme.html#installation)
+[Reddit API](https://developer.twitter.com/en/docs/twitter-api) credentials are required for functionality, and a [Discord Webhook](https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks) is recommended for notifications.
 
-A Reddit application ID and Secret are required, you must first [register an application](https://github.com/reddit-archive/reddit/wiki/OAuth2#getting-started).
+Regardless of your chosen setup method, Snoopy is intended for use with a task scheduler, such as [cron](https://crontab.guru/).
 
-## Usage
+**Environment Variables:**
 
-Open `configuration_example.json` in your text editor, fill the configurable values. Once finished, save and rename the file to `configuration.json`.
+-   `REDDIT_USERNAME` (Required): Reddit account username.
+-   `REDDIT_PASSWORD` (Required): Reddit account password.
+-   `REDDIT_CLIENT_ID` (Required): [Reddit API](https://github.com/reddit-archive/reddit/wiki/OAuth2#getting-started) application client ID.
+-   `REDDIT_CLIENT_SECRET` (Required): [Reddit API](https://github.com/reddit-archive/reddit/wiki/OAuth2#getting-started) application client secret.
+-   `DISCORD_NOTIFY_WEBHOOK`: [Discord Webhook](https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks) URL to receive available username notifications.
+-   `DISCORD_LOG_WEBHOOK`: [Discord Webhook](https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks) URL to receive log events.
+-   `DISCORD_LOG_LEVEL`: Minimum [Loguru](https://loguru.readthedocs.io/en/stable/api/logger.html) severity level to forward to Discord.
 
-Snoopy is designed to be ran using a scheduler, such as [cron](https://en.wikipedia.org/wiki/Cron).
+**Configurable Variables** (`config.json`)**:**
 
+-   `users` (Required): Array of dicts containing options for watching Reddit users.
+    -   `username` (Required): Username of the desired Reddit user
+    -   `label`: Label to be displayed alongside the username and post flair
+    -   `communities`: Array of strings containing Reddit subreddit names
+
+### Docker (Recommended)
+
+Modify the following `docker-compose.yml` example file, then run `docker compose up`.
+
+Rename `config_example.json` to `config.json`, then provide the configurable variables.
+
+```yml
+version: "3"
+services:
+  snoopy:
+    container_name: snoopy
+    image: ethanchrisp/snoopy:latest
+    environment:
+      REDDIT_USERNAME: XXXXXXXX
+      REDDIT_PASSWORD: XXXXXXXX
+      REDDIT_CLIENT_ID: XXXXXXXX
+      REDDIT_CLIENT_SECRET: XXXXXXXX
+      DISCORD_NOTIFY_WEBHOOK: https://discord.com/api/webhooks/XXXXXXXX/XXXXXXXX
+      DISCORD_LOG_WEBHOOK: https://discord.com/api/webhooks/XXXXXXXX/XXXXXXXX
+      DISCORD_LOG_LEVEL: WARNING
+    volumes:
+      - /path/to/config.json:/snoopy/config.json:ro
 ```
-python snoo.py
-```
 
-## Credits
+### Standalone
 
--   Layer7 Solutions: [Idea, BungieReplied Bot](https://bitbucket.org/layer7solutions/bungie-replied/)
+Snoopy is built for [Python 3.11](https://www.python.org/) or greater.
+
+1. Install required dependencies using [Poetry](https://python-poetry.org/): `poetry install`
+2. Rename `.env_example` to `.env`, then provide the environment variables.
+3. Rename `config_example.json` to `config.json`, then provide the configurable variables.
+4. Start Snoopy: `python snoo.py`

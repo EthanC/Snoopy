@@ -1,0 +1,17 @@
+{
+    "users": [
+        {
+            "username": "User123",
+            "communities": ["CallofDuty", "CODZombies", "BlackOpsColdWar"],
+            "label": "Developer"
+        },
+        {
+            "username": "User456",
+            "label": "Featured Artist"
+        },
+        {
+            "username": "User789",
+            "communities": ["offmychest"]
+        }
+    ]
+}

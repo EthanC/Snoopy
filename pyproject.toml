@@ -1,20 +1,23 @@
 [tool.poetry]
 name = "snoopy"
-version = "1.0.0"
-description = "Redditor watching service which tracks specific user replies in a thread and notifies via Discord."
-authors = ["Ethan C <EthanC@github.com>"]
+version = "2.0.0"
+description = "Reddit user watcher that stickies comments and reports activity via Discord."
+authors = ["EthanC <16727756+EthanC@users.noreply.github.com>"]
 license = "MIT"
+readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.8"
-praw = "^6.5.1"
-coloredlogs = "^10.0"
-httpx = "^0.11.1"
+python = "^3.11"
+python-dotenv = "^0.21.1"
+loguru = "^0.6.0"
+notifiers = "^1.3.3"
+praw = "^7.6.1"
+discord-webhook = "^1.0.0"
 
 [tool.poetry.dev-dependencies]
-pylint = "^2.4.4"
-black = "^19.10b0"
+pylint = "^2.16.1"
+black = "^23.1.0"
 
 [build-system]
-requires = ["poetry>=0.12"]
-build-backend = "poetry.masonry.api"
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

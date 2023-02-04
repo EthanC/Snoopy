@@ -1,347 +1,254 @@
-import logging
-from os import path
+import json
+import os
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from sys import exit
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Self, Union
 
-import coloredlogs
-import httpx
-import praw
+import dotenv
+from discord_webhook import DiscordEmbed, DiscordWebhook
+from loguru import logger
+from notifiers.logging import NotificationHandler
+from praw.models.reddit.submission import SubmissionModeration
+from praw.reddit import Comment, Reddit, Redditor, Submission
 
-from util import Utility
-
-log: logging.Logger = logging.getLogger(__name__)
-coloredlogs.install(level="INFO", fmt="[%(asctime)s] %(message)s", datefmt="%I:%M:%S")
+from services import RedditAPI
 
 
 class Snoopy:
-    """Redditor watching service which tracks specific user replies in a thread and notifies via Discord."""
+    """
+    Reddit user watcher that stickies comments and reports activity
+    via Discord.
 
-    def init(self: Any) -> None:
-        print("Snoopy - Redditor watching service")
-        print("https://github.com/EthanC/Snoopy\n")
+    https://github.com/EthanC/Snoopy
+    """
 
-        self.configuration: dict = Utility.ReadFile(self, "configuration", "json")
-        configured: Optional[bool] = Snoopy.LoadConfiguration(self)
+    def Start(self: Self) -> None:
+        """Initialize Snoopy and begin primary functionality."""
 
-        if path.isfile("database.json") is False:
-            log.warning("Could not find database, creating it")
+        logger.info("Snoopy")
+        logger.info("https://github.com/EthanC/Snoopy")
 
-            Utility.WriteFile(self, "database", "json", {})
+        if dotenv.load_dotenv():
+            logger.success("Loaded environment variables")
+            logger.trace(os.environ)
 
-        self.database: dict = Utility.ReadFile(self, "database", "json")
+        if Path("config.json").is_file():
+            self.config: Dict[str, Any] = {}
 
-        if (configured is True) and (self.database is not None):
-            log.info("Loaded configuration and database")
+            with open("config.json", "r") as file:
+                self.config = json.loads(file.read())
 
-            try:
-                self.reddit: praw.reddit.Reddit = praw.Reddit(
-                    username=self.username,
-                    password=self.password,
-                    client_id=self.clientId,
-                    client_secret=self.clientSecret,
-                    user_agent="Snoopy by /u/LackingAGoodName (https://github.com/EthanC/Snoopy)",
-                )
+            # Standardize case of community names for comparisons
+            for user in self.config["users"]:
+                if user.get("communities"):
+                    user["communities"] = [
+                        community.lower() for community in user["communities"]
+                    ]
 
-                if self.reddit.read_only is True:
-                    raise Exception("read-only mode is active")
-            except Exception as e:
-                log.critical(f"Failed to authenticate with Reddit, {e}")
-
-                return
-
-            log.info(f"Authenticated with Reddit as /u/{self.reddit.user.me().name}")
-
-            for configuration in self.configurations:
-                Snoopy.CheckComments(self, configuration)
-
-    def LoadConfiguration(self: Any) -> Optional[bool]:
-        """
-        Set the configuration values specified in configuration.json
-        
-        Return True if configuration sucessfully loaded.
-        """
-
-        try:
-            self.username: str = self.configuration["reddit"]["username"]
-            self.password: str = self.configuration["reddit"]["password"]
-            self.clientId: str = self.configuration["reddit"]["clientId"]
-            self.clientSecret: str = self.configuration["reddit"]["clientSecret"]
-            self.configurations: List[
-                Dict[str, Union[bool, str, dict]]
-            ] = self.configuration["configurations"]
-            self.watermark: str = "[](#SnoopyReply)"
-            self.template: str = "[Comment](https://reddit.com{}?context=1000) by [\\/u\\/{}](https://reddit.com/user/{}) ({}):\n\n{}\n\n"
-
-            return True
-        except Exception as e:
-            log.fatal(f"Failed to load configuration, {e}")
-
-    def CheckComments(self: Any, configuration: dict) -> None:
-        """
-        Check the latest comments in a Subreddit. Act upon comments which
-        fit the configured requirements.
-        """
-
-        if configuration.get("enabled") is not True:
-            return
-
-        if (s := configuration.get("subreddit")) is None:
-            return
-
-        subreddit: praw.reddit.Subreddit = self.reddit.subreddit(s)
-        flairs: List[Dict[str, str]] = configuration.get("userFlairs", [])
-        record: Optional[int] = self.database.get(subreddit.display_name.lower())
-
-        if record is not None:
-            count: int = 0
-            latest: Tuple[bool, int] = (False, 0)
-
-            try:
-                comment: praw.reddit.Comment
-                for comment in subreddit.comments(limit=None):
-                    created: int = int(comment.created_utc)
-                    flairId: Optional[str] = comment.author_flair_template_id
-
-                    # Comments are returned newest to oldest, so we want
-                    # to record the first comment which is checked.
-                    if latest[0] is False:
-                        latest: Tuple[bool, int] = (True, created)
-
-                    if comment.removed is True:
-                        continue
-
-                    if created <= record:
-                        break
-
-                    count += 1
-
-                    if flairId is not None:
-                        for flair in flairs:
-                            if flair["id"] == flairId:
-                                Snoopy.ProcessComment(
-                                    self, comment, flair["name"], configuration
-                                )
-            except Exception as e:
-                log.error(
-                    f"Failed to get comments from /r/{subreddit.display_name}, {e}"
-                )
-
-                return
-
-            if count == 0:
-                log.info(f"No new comments found in /r/{subreddit.display_name}")
-
-                return
-
-            log.info(f"Checked {count} new comments in /r/{subreddit.display_name}")
-
-            Snoopy.UpdateDatabase(self, subreddit.display_name, latest[1])
+            logger.trace(json.dumps(self.config))
         else:
-            try:
-                comment: praw.reddit.Comment
-                for comment in subreddit.comments(limit=1):
-                    Snoopy.UpdateDatabase(
-                        self, subreddit.display_name, int(comment.created_utc)
-                    )
+            logger.critical("Failed to load configuration, config.json does not exist")
 
-                    break
+            return
 
-                log.info(f"No record found for /r/{subreddit.display_name}, created it")
-            except Exception as e:
-                log.error(
-                    f"Failed to get the latest comment in /r/{subreddit.display_name}, {e}"
-                )
+        if logUrl := os.environ.get("DISCORD_LOG_WEBHOOK"):
+            if not (logLevel := os.environ.get("DISCORD_LOG_LEVEL")):
+                logger.critical("Level for Discord webhook logging is not set")
 
-    def ProcessComment(
-        self: Any, comment: praw.reddit.Comment, flair: str, configuration: dict
-    ) -> None:
+                return
+
+            logger.add(
+                NotificationHandler(
+                    "slack", defaults={"webhook_url": f"{logUrl}/slack"}
+                ),
+                level=logLevel,
+                format="```\n{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name}:{function}:{line} - {message}\n```",
+            )
+
+            logger.success(f"Enabled logging to Discord webhook")
+            logger.trace(logUrl)
+
+        self.client: Optional[Reddit] = RedditAPI.Authenticate(self)
+
+        if not self.client:
+            return
+
+        self.checkpoint: int = Snoopy.Checkpoint(self)
+
+        for user in self.config["users"]:
+            account: Optional[Redditor] = RedditAPI.GetUser(self, user["username"])
+            communities: List[str] = user.get("communities", [])
+            label: Optional[str] = user.get("label")
+
+            if not account:
+                continue
+
+            Snoopy.CheckPosts(self, account, communities, label)
+            Snoopy.CheckComments(self, account, communities, label)
+
+            logger.info(f"Processed latest activity for u/{account.name}")
+
+        if not os.environ.get("DEBUG", False):
+            Snoopy.Checkpoint(self, int(datetime.utcnow().timestamp()))
+
+    def Checkpoint(self: Self, new: Optional[int] = None) -> Optional[int]:
         """
-        Add the specified comment to the thread's comment compilation,
-        perform miscellaneous tasks based on configuration.
+        Return the latest checkpoint, or save the provided checkpoint
+        to the local disk.
         """
 
-        submission: praw.reddit.Submission = comment.submission
-        subreddit: str = comment.subreddit.display_name
-        existing: Tuple[bool, Optional[praw.reddit.Comment]] = (False, None)
+        humanized: Optional[str] = None
 
-        log.info(
-            f"Found comment by /u/{comment.author.name} ({flair}) in /r/{subreddit}"
+        if new:
+            with open("checkpoint.txt", "w+") as file:
+                file.write(str(new))
+
+            humanized = datetime.utcfromtimestamp(new).strftime("%Y-%m-%d %H:%M:%S")
+
+            logger.info(f"Saved checkpoint at {humanized} ({new})")
+
+            return
+
+        # Default to 24 hours ago if checkpoint is not found
+        checkpoint: int = int(
+            (datetime.now(timezone.utc) - timedelta(hours=24)).timestamp()
         )
 
-        try:
-            topLevel: praw.reddit.Comment
-            for topLevel in submission.comments:
-                try:
-                    if topLevel.removed is True:
-                        continue
-                except Exception as e:
-                    log.error(
-                        f"Unable to determine if comment is removed in /r/{subreddit}"
-                    )
+        if Path("checkpoint.txt").is_file():
+            with open("checkpoint.txt", "r") as file:
+                checkpoint = int(file.read())
 
-                if topLevel.author == self.reddit.user.me():
-                    if topLevel.body.endswith(self.watermark):
-                        existing = (True, topLevel)
-
-                        break
-
-                if topLevel.stickied is True:
-                    topLevel.report(
-                        "Stickied comment replaced, please ensure this was intended"
-                    )
-        except Exception as e:
-            log.error(f"Failed to check comments of post in /r/{subreddit}, {e}")
-
-        reply: Optional[praw.reddit.Comment] = None
-        if existing[0] is True:
-            reply: Optional[praw.reddit.Comment] = Snoopy.UpdateReply(
-                self, existing[1], comment, flair
-            )
-        elif existing[0] is False:
-            reply: Optional[praw.reddit.Comment] = Snoopy.CreateReply(
-                self, comment, submission, flair
+            humanized = datetime.utcfromtimestamp(checkpoint).strftime(
+                "%Y-%m-%d %H:%M:%S"
             )
 
-        webhook: Dict[str, Union[bool, str]] = configuration.get("webhook", {})
-        if webhook.get("enabled") is True:
-            Snoopy.Webhook(self, comment, flair, webhook)
+            logger.info(f"Loaded checkpoint at {humanized} ({checkpoint})")
+        else:
+            logger.info(
+                f"Checkpoint not found, defaulted to 24 hours ago ({checkpoint})"
+            )
 
-        if reply is None:
+        return checkpoint
+
+    def CheckPosts(
+        self: Self, user: Redditor, communities: List[str], label: Optional[str]
+    ) -> None:
+        """Process the latest post activity for the provided Reddit user."""
+
+        posts: List[Submission] = RedditAPI.GetUserPosts(
+            self, user, self.checkpoint, communities
+        )
+
+        for post in posts:
+            logger.success(
+                f"New post by u/{user.name} in r/{post.subreddit.display_name}"
+            )
+            logger.debug(RedditAPI.BuildURL(self, post))
+
+            Snoopy.Notify(self, post, label)
+
+            if RedditAPI.IsModerator(self, self.client, post.subreddit):
+                post.mod.approve()
+
+    def CheckComments(
+        self: Self, user: Redditor, communities: List[str], label: Optional[str]
+    ) -> None:
+        """Process the latest comment activity for the provided Reddit user."""
+
+        comments: List[Comment] = RedditAPI.GetUserComments(
+            self, user, self.checkpoint, communities
+        )
+
+        for comment in comments:
+            logger.success(
+                f"New comment by u/{user.name} in r/{comment.subreddit.display_name}"
+            )
+            logger.debug(RedditAPI.BuildURL(self, comment))
+
+            Snoopy.Notify(self, comment, label)
+
+            if not RedditAPI.IsModerator(self, self.client, comment.subreddit):
+                continue
+
+            comment.mod.approve()
+
+            parent: Submission = comment.submission
+
+            if (label) and ((flairText := parent.link_flair_text)):
+                # Ensure we only edit the flair once
+                if not flairText.endswith(" Replied)"):
+                    parent.mod.flair(
+                        flair_template_id=parent.link_flair_template_id,
+                        text=f"{flairText} ({label} Replied)",
+                    )
+
+            stickied: Optional[Comment] = RedditAPI.GetStickiedComment(self, parent)
+
+            # If no stickied comment, or current stickied comment is not
+            # owned by the client authorized user, create our own
+            if (not stickied) or (stickied.author != self.client.user.me()):
+                reply: Comment = parent.reply(
+                    RedditAPI.BuildQuote(self, comment, label)
+                )
+
+                reply.mod.approve()
+                reply.mod.lock()
+                reply.mod.distinguish(sticky=True)
+
+                return
+
+            # Append latest comment to existing stickied comment
+            stickied.body += "\n\n"
+            stickied.body += RedditAPI.BuildQuote(self, comment, label)
+
+            stickied.edit(stickied.body)
+
+    def Notify(
+        self: Self, content: Union[Comment, Submission], label: Optional[str]
+    ) -> None:
+        """Report Redditor activity to the configured Discord webhook."""
+
+        if not (url := os.environ.get("DISCORD_NOTIFY_WEBHOOK")):
+            logger.info("Discord webhook for notifications is not set")
+
             return
 
-        try:
-            reply.disable_inbox_replies()
-        except Exception as e:
-            log.error(
-                f"Failed to disable inbox replies for comment in /r/{subreddit}, {e}"
-            )
+        author: str = f"u/{content.author.name}"
 
-        try:
-            reply.mod.distinguish(how="yes", sticky=True)
-        except Exception as e:
-            log.error(f"Failed to distinguish comment in /r/{subreddit}, {e}")
+        if label:
+            author += f" ({label})"
 
-        if configuration.get("lockComment") is True:
-            try:
-                reply.mod.lock()
-            except Exception as e:
-                log.error(f"Failed to lock comment in /r/{subreddit}, {e}")
+        embed: DiscordEmbed = DiscordEmbed()
 
-        if configuration.get("changeFlair") is True:
-            linkFlairText: Optional[str] = submission.link_flair_text
+        embed.set_color("FF5700")
+        embed.set_author(
+            author,
+            url=RedditAPI.BuildURL(self, content.author),
+            icon_url=content.author.icon_img,
+        )
+        embed.set_footer(text="Reddit", icon_url="https://i.imgur.com/lGFZCv0.png")
+        embed.set_timestamp(content.created_utc)
 
-            # This will prevent literal "None" from being added to the
-            # link flair text when no flair was previously present.
-            if linkFlairText is None:
-                linkFlairText: Optional[str] = ""
+        if type(content) is Submission:
+            embed.set_title(content.title)
+            embed.set_url(RedditAPI.BuildURL(self, content))
 
-            if linkFlairText.endswith(" Replied)"):
-                pass
-            else:
-                try:
-                    submission.mod.flair(text=f"{linkFlairText} ({flair} Replied)")
-                except Exception as e:
-                    log.error(f"Failed to modify post flair in /r/{subreddit}, {e}")
+            # Handle various submission types
+            if (hasattr(content, "selftext")) and (content.selftext):
+                embed.set_description(f">>> {content.selftext[0:4000]}")
+            elif (hasattr(content, "url")) and (content.url):
+                embed.set_description(content.url[0:4000])
+        elif type(content) is Comment:
+            embed.set_title(f"Comment in r/{content.subreddit.display_name}")
+            embed.set_url(RedditAPI.BuildURL(self, content, True))
+            embed.set_description(f">>> {content.body[0:4000]}")
 
-    def CreateReply(
-        self: Any,
-        reply: Optional[praw.reddit.Comment],
-        parent: praw.reddit.Submission,
-        flair: str,
-    ) -> Optional[praw.reddit.Comment]:
-        """Create a new comment in the specified thread."""
-
-        try:
-            compilation: Optional[praw.reddit.Comment] = parent.reply(
-                self.template.format(
-                    reply.permalink,
-                    reply.author.name,
-                    reply.author.name,
-                    flair,
-                    Utility.Quote(self, reply.body),
-                )
-                + self.watermark
-            )
-
-            return compilation
-        except Exception as e:
-            log.error(
-                f"Failed to reply to post in /r/{parent.subreddit.display_name}, {e}"
-            )
-
-    def UpdateReply(
-        self: Any,
-        compilation: Optional[praw.reddit.Comment],
-        reply: Optional[praw.reddit.Comment],
-        flair: str,
-    ) -> Optional[praw.reddit.Comment]:
-        """Update the existing comment in the specified thread."""
-
-        try:
-            compilation.edit(
-                compilation.body.split(self.watermark)[0]
-                + self.template.format(
-                    reply.permalink,
-                    reply.author.name,
-                    reply.author.name,
-                    flair,
-                    Utility.Quote(self, reply.body),
-                )
-                + self.watermark
-            )
-
-            return compilation
-        except Exception as e:
-            log.error(
-                f"Failed to edit comment in /r/{compilation.subreddit.display_name}, {e}"
-            )
-
-    def UpdateDatabase(self: Any, subreddit: str, commentTime: int) -> None:
-        """Add the latest seen comment's timestamp to database.json"""
-
-        self.database.update({subreddit.lower(): commentTime})
-
-        Utility.WriteFile(self, "database", "json", self.database)
-
-    def Webhook(
-        self: Any, comment: praw.reddit.Comment, flair: str, configuration: dict
-    ) -> None:
-        """Send the specified comment to Discord via Webhook."""
-
-        embed: dict = {
-            "username": configuration["name"],
-            "avatar_url": configuration["avatarUrl"],
-            "embeds": [
-                {
-                    "color": int("FF5700", base=16),
-                    "author": {
-                        "name": f"/u/{comment.author.name} ({flair})",
-                        "url": f"https://reddit.com/user/{comment.author.name}",
-                        "icon_url": comment.author.icon_img,
-                    },
-                    "title": f"Comment in /r/{comment.subreddit.display_name}",
-                    "url": f"https://reddit.com{comment.permalink}?context=1000",
-                    "description": Utility.Truncate(
-                        self, Utility.Quote(self, comment.body), 2045
-                    ),
-                    "footer": {
-                        "icon_url": "https://i.imgur.com/zbrkjFR.png",
-                        "text": "Snoopy",
-                    },
-                    "timestamp": Utility.NowISO(self),
-                }
-            ],
-        }
-
-        res: httpx.Response = httpx.post(configuration["url"], json=embed)
-
-        # HTTP 204 (Success: No Content)
-        if (code := res.status_code) != 204:
-            log.error(f"Failed to POST to Discord Webhook (HTTP {code}), {res.text}")
+        DiscordWebhook(url=url, embeds=[embed], rate_limit_retry=True).execute()
 
 
 if __name__ == "__main__":
     try:
-        Snoopy.init(Snoopy)
+        Snoopy.Start(Snoopy)
     except KeyboardInterrupt:
         exit()
