@@ -10,7 +10,7 @@ Snoopy is a Reddit user watcher that stickies comments and reports activity via 
 
 ## Setup
 
-[Reddit API](https://developer.twitter.com/en/docs/twitter-api) credentials are required for functionality, and a [Discord Webhook](https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks) is recommended for notifications.
+[Reddit API](https://github.com/reddit-archive/reddit/wiki/OAuth2#getting-started) credentials are required for functionality, and a [Discord Webhook](https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks) is recommended for notifications.
 
 Regardless of your chosen setup method, Snoopy is intended for use with a task scheduler, such as [cron](https://crontab.guru/).
 
