@@ -33,9 +33,9 @@ Regardless of your chosen setup method, Snoopy is intended for use with a task s
 
 ### Docker (Recommended)
 
-Modify the following `docker-compose.yml` example file, then run `docker compose up`.
-
 Rename `config_example.json` to `config.json`, then provide the configurable variables.
+
+Modify the following `docker-compose.yml` example file, then run `docker compose up`.
 
 ```yml
 version: "3"
