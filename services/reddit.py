@@ -1,4 +1,4 @@
-import os
+from os import environ
 from typing import List, Optional, Self, Union
 
 import praw
@@ -16,10 +16,10 @@ class RedditAPI:
         """Authenticate with Reddit using the configured credentials."""
 
         self.client: Optional[Reddit] = praw.Reddit(
-            username=os.environ.get("REDDIT_USERNAME"),
-            password=os.environ.get("REDDIT_PASSWORD"),
-            client_id=os.environ.get("REDDIT_CLIENT_ID"),
-            client_secret=os.environ.get("REDDIT_CLIENT_SECRET"),
+            username=environ.get("REDDIT_USERNAME"),
+            password=environ.get("REDDIT_PASSWORD"),
+            client_id=environ.get("REDDIT_CLIENT_ID"),
+            client_secret=environ.get("REDDIT_CLIENT_SECRET"),
             user_agent="Snoopy by u/LackingAGoodName (https://github.com/EthanC/Snoopy)",
         )
 

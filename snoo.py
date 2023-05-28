@@ -1,6 +1,7 @@
 import json
-import os
+import logging
 from datetime import datetime, timedelta, timezone
+from os import environ
 from pathlib import Path
 from sys import exit
 from typing import Any, Dict, List, Optional, Self, Union
@@ -9,9 +10,9 @@ import dotenv
 from discord_webhook import DiscordEmbed, DiscordWebhook
 from loguru import logger
 from notifiers.logging import NotificationHandler
-from praw.models.reddit.submission import SubmissionModeration
 from praw.reddit import Comment, Reddit, Redditor, Submission
 
+from handlers import Intercept
 from services import RedditAPI
 
 
@@ -31,7 +32,7 @@ class Snoopy:
 
         if dotenv.load_dotenv():
             logger.success("Loaded environment variables")
-            logger.trace(os.environ)
+            logger.trace(environ)
 
         if Path("config.json").is_file():
             self.config: Dict[str, Any] = {}
@@ -52,8 +53,11 @@ class Snoopy:
 
             return
 
-        if logUrl := os.environ.get("DISCORD_LOG_WEBHOOK"):
-            if not (logLevel := os.environ.get("DISCORD_LOG_LEVEL")):
+        # Reroute standard logging to Loguru
+        logging.basicConfig(handlers=[Intercept()], level=0, force=True)
+
+        if logUrl := environ.get("DISCORD_LOG_WEBHOOK"):
+            if not (logLevel := environ.get("DISCORD_LOG_LEVEL")):
                 logger.critical("Level for Discord webhook logging is not set")
 
                 return
@@ -89,7 +93,7 @@ class Snoopy:
 
             logger.info(f"Processed latest activity for u/{account.name}")
 
-        if not os.environ.get("DEBUG", False):
+        if not environ.get("DEBUG", False):
             Snoopy.Checkpoint(self, int(datetime.utcnow().timestamp()))
 
     def Checkpoint(self: Self, new: Optional[int] = None) -> Optional[int]:
@@ -209,7 +213,7 @@ class Snoopy:
     ) -> None:
         """Report Redditor activity to the configured Discord webhook."""
 
-        if not (url := os.environ.get("DISCORD_NOTIFY_WEBHOOK")):
+        if not (url := environ.get("DISCORD_NOTIFY_WEBHOOK")):
             logger.info("Discord webhook for notifications is not set")
 
             return
