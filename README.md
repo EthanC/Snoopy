@@ -1,6 +1,6 @@
 # Snoopy
 
-![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/EthanC/Snoopy/main.yml?branch=main) ![Docker Pulls](https://img.shields.io/docker/pulls/ethanchrisp/snoopy?label=Docker%20Pulls) ![Docker Image Size (tag)](https://img.shields.io/docker/image-size/ethanchrisp/snoopy/latest?label=Docker%20Image%20Size)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/EthanC/Snoopy/ci.yml?branch=main) ![Docker Pulls](https://img.shields.io/docker/pulls/ethanchrisp/snoopy?label=Docker%20Pulls) ![Docker Image Size (tag)](https://img.shields.io/docker/image-size/ethanchrisp/snoopy/latest?label=Docker%20Image%20Size)
 
 Snoopy is a Reddit user watcher that stickies comments and reports activity via Discord.
 
