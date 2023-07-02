@@ -231,7 +231,7 @@ class Snoopy:
             url=RedditAPI.BuildURL(self, content.author),
             icon_url=content.author.icon_img,
         )
-        embed.set_footer(text="Reddit", icon_url="https://i.imgur.com/lGFZCv0.png")
+        embed.set_footer(text="Reddit", icon_url="https://i.imgur.com/ucGCjfj.png")
         embed.set_timestamp(content.created_utc)
 
         if type(content) is Submission:
