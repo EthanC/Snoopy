@@ -16,13 +16,14 @@ Regardless of your chosen setup method, Snoopy is intended for use with a task s
 
 **Environment Variables:**
 
+-   `LOG_LEVEL`: [Loguru](https://loguru.readthedocs.io/en/stable/api/logger.html) severity level to write to the console.
+-   `LOG_DISCORD_WEBHOOK_URL`: [Discord Webhook](https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks) URL to receive log events.
+-   `LOG_DISCORD_WEBHOOK_LEVEL`: Minimum [Loguru](https://loguru.readthedocs.io/en/stable/api/logger.html) severity level to forward to Discord.
 -   `REDDIT_USERNAME` (Required): Reddit account username.
 -   `REDDIT_PASSWORD` (Required): Reddit account password.
 -   `REDDIT_CLIENT_ID` (Required): [Reddit API](https://github.com/reddit-archive/reddit/wiki/OAuth2#getting-started) application client ID.
 -   `REDDIT_CLIENT_SECRET` (Required): [Reddit API](https://github.com/reddit-archive/reddit/wiki/OAuth2#getting-started) application client secret.
--   `DISCORD_NOTIFY_WEBHOOK`: [Discord Webhook](https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks) URL to receive available username notifications.
--   `DISCORD_LOG_WEBHOOK`: [Discord Webhook](https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks) URL to receive log events.
--   `DISCORD_LOG_LEVEL`: Minimum [Loguru](https://loguru.readthedocs.io/en/stable/api/logger.html) severity level to forward to Discord.
+-   `DISCORD_WEBHOOK_URL`: [Discord Webhook](https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks) URL to receive Reddit activity notifications.
 
 **Configurable Variables** (`config.json`)**:**
 
@@ -44,13 +45,14 @@ services:
     container_name: snoopy
     image: ethanchrisp/snoopy:latest
     environment:
+      LOG_LEVEL: INFO
+      LOG_DISCORD_WEBHOOK_URL: https://discord.com/api/webhooks/YYYYYYYY/YYYYYYYY
+      LOG_DISCORD_WEBHOOK_LEVEL: WARNING
       REDDIT_USERNAME: XXXXXXXX
       REDDIT_PASSWORD: XXXXXXXX
       REDDIT_CLIENT_ID: XXXXXXXX
       REDDIT_CLIENT_SECRET: XXXXXXXX
-      DISCORD_NOTIFY_WEBHOOK: https://discord.com/api/webhooks/XXXXXXXX/XXXXXXXX
-      DISCORD_LOG_WEBHOOK: https://discord.com/api/webhooks/XXXXXXXX/XXXXXXXX
-      DISCORD_LOG_LEVEL: WARNING
+      DISCORD_WEBHOOK_URL: https://discord.com/api/webhooks/XXXXXXXX/XXXXXXXX
     volumes:
       - /path/to/config.json:/snoopy/config.json:ro
 ```

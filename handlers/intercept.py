@@ -19,7 +19,7 @@ class Intercept(Handler):
         try:
             level = logger.level(record.levelname).name
         except Exception as e:
-            logger.trace(f"Failed to determine logger intercept level, {e}")
+            logger.opt(exception=e).trace("Failed to determine logger intercept level")
 
         while frame.f_code.co_filename == logging.__file__:
             frame = frame.f_back

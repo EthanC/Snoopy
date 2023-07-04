@@ -3,13 +3,13 @@ import logging
 from datetime import datetime, timedelta, timezone
 from os import environ
 from pathlib import Path
-from sys import exit
+from sys import exit, stdout
 from typing import Any, Dict, List, Optional, Self, Union
 
 import dotenv
 from discord_webhook import DiscordEmbed, DiscordWebhook
 from loguru import logger
-from notifiers.logging import NotificationHandler
+from loguru_discord import DiscordSink
 from praw.reddit import Comment, Reddit, Redditor, Submission
 
 from handlers import Intercept
@@ -30,9 +30,28 @@ class Snoopy:
         logger.info("Snoopy")
         logger.info("https://github.com/EthanC/Snoopy")
 
+        # Reroute standard logging to Loguru
+        logging.basicConfig(handlers=[Intercept()], level=0, force=True)
+
         if dotenv.load_dotenv():
             logger.success("Loaded environment variables")
             logger.trace(environ)
+
+        if level := environ.get("LOG_LEVEL"):
+            logger.remove()
+            logger.add(stdout, level=level)
+
+            logger.success(f"Set console logging level to {level}")
+
+        if url := environ.get("LOG_DISCORD_WEBHOOK_URL"):
+            logger.add(
+                DiscordSink(url),
+                level=environ.get("LOG_DISCORD_WEBHOOK_LEVEL"),
+                backtrace=False,
+            )
+
+            logger.success(f"Enabled logging to Discord webhook")
+            logger.trace(url)
 
         if Path("config.json").is_file():
             self.config: Dict[str, Any] = {}
@@ -51,33 +70,9 @@ class Snoopy:
         else:
             logger.critical("Failed to load configuration, config.json does not exist")
 
-            return
+            exit(1)
 
-        # Reroute standard logging to Loguru
-        logging.basicConfig(handlers=[Intercept()], level=0, force=True)
-
-        if logUrl := environ.get("DISCORD_LOG_WEBHOOK"):
-            if not (logLevel := environ.get("DISCORD_LOG_LEVEL")):
-                logger.critical("Level for Discord webhook logging is not set")
-
-                return
-
-            logger.add(
-                NotificationHandler(
-                    "slack", defaults={"webhook_url": f"{logUrl}/slack"}
-                ),
-                level=logLevel,
-                format="```\n{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {name}:{function}:{line} - {message}\n```",
-            )
-
-            logger.success(f"Enabled logging to Discord webhook")
-            logger.trace(logUrl)
-
-        self.client: Optional[Reddit] = RedditAPI.Authenticate(self)
-
-        if not self.client:
-            return
-
+        self.client: Reddit = RedditAPI.Authenticate(self)
         self.checkpoint: int = Snoopy.Checkpoint(self)
 
         for user in self.config["users"]:
@@ -213,7 +208,7 @@ class Snoopy:
     ) -> None:
         """Report Redditor activity to the configured Discord webhook."""
 
-        if not (url := environ.get("DISCORD_NOTIFY_WEBHOOK")):
+        if not (url := environ.get("DISCORD_WEBHOOK_URL")):
             logger.info("Discord webhook for notifications is not set")
 
             return

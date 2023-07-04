@@ -1,4 +1,5 @@
 from os import environ
+from sys import exit
 from typing import List, Optional, Self, Union
 
 import praw
@@ -12,7 +13,7 @@ class RedditAPI:
     to the Reddit platform.
     """
 
-    def Authenticate(self: Self) -> Optional[Reddit]:
+    def Authenticate(self: Self) -> Reddit:
         """Authenticate with Reddit using the configured credentials."""
 
         self.client: Optional[Reddit] = praw.Reddit(
@@ -26,7 +27,7 @@ class RedditAPI:
         if self.client.read_only:
             logger.critical("Failed to authenticate with Reddit, client is read-only")
 
-            return
+            exit(1)
 
         self.client.validate_on_submit = True
 
@@ -48,9 +49,7 @@ class RedditAPI:
         try:
             return self.client.redditor(username)
         except Exception as e:
-            logger.error(f"Failed to fetch Reddit user u/{username}, {e}")
-
-        return
+            logger.opt(exception=e).error(f"Failed to fetch Reddit user u/{username}")
 
     def GetUserPosts(
         self: Self, user: Redditor, checkpoint: int, communities: List[str]
@@ -82,7 +81,9 @@ class RedditAPI:
 
             logger.trace(posts)
         except Exception as e:
-            logger.error(f"Failed to fetch posts for Reddit user u/{user.name}, {e}")
+            logger.opt(exception=e).error(
+                f"Failed to fetch posts for Reddit user u/{user.name}"
+            )
 
         return posts
 
@@ -116,7 +117,9 @@ class RedditAPI:
 
             logger.trace(comments)
         except Exception as e:
-            logger.error(f"Failed to fetch comments for Reddit user u/{user.name}, {e}")
+            logger.opt(exception=e).error(
+                f"Failed to fetch comments for Reddit user u/{user.name}"
+            )
 
         return comments
 
