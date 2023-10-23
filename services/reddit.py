@@ -126,6 +126,8 @@ class RedditAPI:
     def GetPostComments(self: Self, post: Submission) -> List[Comment]:
         """Fetch all comments on the provided Reddit post."""
 
+        post.comments.replace_more(limit=None)
+
         comments: List[Comment] = post.comments.list()
 
         logger.trace(comments)
@@ -138,7 +140,7 @@ class RedditAPI:
         comments: List[Comment] = RedditAPI.GetPostComments(self, post)
 
         for comment in comments:
-            if comment.stickied:
+            if (hasattr(comment, "stickied")) and (comment.stickied):
                 logger.trace(comment)
 
                 return comment
