@@ -126,9 +126,14 @@ class RedditAPI:
     def GetPostComments(self: Self, post: Submission) -> List[Comment]:
         """Fetch all comments on the provided Reddit post."""
 
-        post.comments.replace_more(limit=None)
+        comments: List[Comment] = []
 
-        comments: List[Comment] = post.comments.list()
+        try:
+            post.comments.replace_more(limit=None)
+            
+            comments = post.comments.list()
+        except Exception as e:
+            logger.error(f"Failed to fetch comments for post {post.id}, {e}")
 
         logger.trace(comments)
 
