@@ -201,7 +201,10 @@ class Snoopy:
             stickied.body += "\n\n"
             stickied.body += RedditAPI.BuildQuote(self, comment, label)
 
-            stickied.edit(stickied.body)
+            try:
+                stickied.edit(stickied.body)
+            except Exception as e:
+                logger.error(f"Failed to edit comment, {e}")
 
     def Notify(
         self: Self, content: Union[Comment, Submission], label: Optional[str]
