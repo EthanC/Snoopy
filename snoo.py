@@ -201,6 +201,11 @@ class Snoopy:
             stickied.body += "\n\n"
             stickied.body += RedditAPI.BuildQuote(self, comment, label)
 
+            if len(stickied.body) >= 10000:
+                logger.warning("Cannot edit comment due to exceeding the length limit")
+
+                continue
+
             try:
                 stickied.edit(stickied.body)
             except Exception as e:
