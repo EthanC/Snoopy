@@ -1,6 +1,6 @@
 from os import environ
 from sys import exit
-from typing import List, Optional, Self, Union
+from typing import Self
 
 import praw
 from loguru import logger
@@ -16,7 +16,7 @@ class RedditAPI:
     def Authenticate(self: Self) -> Reddit:
         """Authenticate with Reddit using the configured credentials."""
 
-        self.client: Optional[Reddit] = praw.Reddit(
+        self.client: Reddit | None = praw.Reddit(
             username=environ.get("REDDIT_USERNAME"),
             password=environ.get("REDDIT_PASSWORD"),
             client_id=environ.get("REDDIT_CLIENT_ID"),
@@ -43,7 +43,7 @@ class RedditAPI:
 
         return self.client.user.me().name
 
-    def GetUser(self: Self, username: str) -> Optional[Redditor]:
+    def GetUser(self: Self, username: str) -> Redditor | None:
         """Fetch a Redditor object for the specified Reddit username."""
 
         try:
@@ -52,11 +52,11 @@ class RedditAPI:
             logger.opt(exception=e).error(f"Failed to fetch Reddit user u/{username}")
 
     def GetUserPosts(
-        self: Self, user: Redditor, checkpoint: int, communities: List[str]
-    ) -> List[Submission]:
+        self: Self, user: Redditor, checkpoint: int, communities: list[str]
+    ) -> list[Submission]:
         """Fetch the latest posts for the provided Reddit user."""
 
-        posts: List[Submission] = []
+        posts: list[Submission] = []
 
         try:
             for post in user.submissions.new(limit=None):
@@ -88,11 +88,11 @@ class RedditAPI:
         return posts
 
     def GetUserComments(
-        self: Self, user: Redditor, checkpoint: int, communities: List[str]
-    ) -> List[Comment]:
+        self: Self, user: Redditor, checkpoint: int, communities: list[str]
+    ) -> list[Comment]:
         """Fetch the latest comments for the provided Reddit user."""
 
-        comments: List[Comment] = []
+        comments: list[Comment] = []
 
         try:
             for comment in user.comments.new(limit=None):
@@ -123,14 +123,14 @@ class RedditAPI:
 
         return comments
 
-    def GetPostComments(self: Self, post: Submission) -> List[Comment]:
+    def GetPostComments(self: Self, post: Submission) -> list[Comment]:
         """Fetch all comments on the provided Reddit post."""
 
-        comments: List[Comment] = []
+        comments: list[Comment] = []
 
         try:
             post.comments.replace_more(limit=None)
-            
+
             comments = post.comments.list()
         except Exception as e:
             logger.error(f"Failed to fetch comments for post {post.id}, {e}")
@@ -139,10 +139,10 @@ class RedditAPI:
 
         return comments
 
-    def GetStickiedComment(self: Self, post: Submission) -> Optional[Comment]:
+    def GetStickiedComment(self: Self, post: Submission) -> Comment | None:
         """Return the stickied comment object on the provided post."""
 
-        comments: List[Comment] = RedditAPI.GetPostComments(self, post)
+        comments: list[Comment] = RedditAPI.GetPostComments(self, post)
 
         for comment in comments:
             if (hasattr(comment, "stickied")) and (comment.stickied):
@@ -151,7 +151,7 @@ class RedditAPI:
                 return comment
 
     def BuildURL(
-        self: Self, content: Union[Submission, Comment, Redditor], context: bool = False
+        self: Self, content: Submission | Comment | Redditor, context: bool = False
     ) -> str:
         """Return a complete URL to the provided Reddit content."""
 
@@ -171,7 +171,7 @@ class RedditAPI:
 
         return url
 
-    def BuildQuote(self: Self, content: Comment, label: Optional[str]) -> str:
+    def BuildQuote(self: Self, content: Comment, label: str | None) -> str:
         """Return a markdown-formatted quote of the provided comment."""
 
         link: str = f"[Comment]({RedditAPI.BuildURL(self, content, True)})"
@@ -195,9 +195,7 @@ class RedditAPI:
 
         return quote
 
-    def IsModerator(
-        self: Self, user: Union[Redditor, Reddit], community: Subreddit
-    ) -> bool:
+    def IsModerator(self: Self, user: Redditor | Reddit, community: Subreddit) -> bool:
         """
         Determine if the provided user is a Moderator of the
         specified community.

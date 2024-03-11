@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from os import environ
 from pathlib import Path
 from sys import exit, stdout
-from typing import Any, Dict, List, Optional, Self, Union
+from typing import Any, Self
 
 import dotenv
 from discord_webhook import DiscordEmbed, DiscordWebhook
@@ -54,7 +54,7 @@ class Snoopy:
             logger.trace(url)
 
         if Path("config.json").is_file():
-            self.config: Dict[str, Any] = {}
+            self.config: dict[str, Any] = {}
 
             with open("config.json", "r") as file:
                 self.config = json.loads(file.read())
@@ -76,9 +76,9 @@ class Snoopy:
         self.checkpoint: int = Snoopy.Checkpoint(self)
 
         for user in self.config["users"]:
-            account: Optional[Redditor] = RedditAPI.GetUser(self, user["username"])
-            communities: List[str] = user.get("communities", [])
-            label: Optional[str] = user.get("label")
+            account: Redditor | None = RedditAPI.GetUser(self, user["username"])
+            communities: list[str] = user.get("communities", [])
+            label: str | None = user.get("label")
 
             if not account:
                 continue
@@ -91,13 +91,13 @@ class Snoopy:
         if not environ.get("DEBUG", False):
             Snoopy.Checkpoint(self, int(datetime.utcnow().timestamp()))
 
-    def Checkpoint(self: Self, new: Optional[int] = None) -> Optional[int]:
+    def Checkpoint(self: Self, new: int | None = None) -> int | None:
         """
         Return the latest checkpoint, or save the provided checkpoint
         to the local disk.
         """
 
-        humanized: Optional[str] = None
+        humanized: str | None = None
 
         if new:
             with open("checkpoint.txt", "w+") as file:
@@ -131,11 +131,11 @@ class Snoopy:
         return checkpoint
 
     def CheckPosts(
-        self: Self, user: Redditor, communities: List[str], label: Optional[str]
+        self: Self, user: Redditor, communities: list[str], label: str | None
     ) -> None:
         """Process the latest post activity for the provided Reddit user."""
 
-        posts: List[Submission] = RedditAPI.GetUserPosts(
+        posts: list[Submission] = RedditAPI.GetUserPosts(
             self, user, self.checkpoint, communities
         )
 
@@ -151,11 +151,11 @@ class Snoopy:
                 post.mod.approve()
 
     def CheckComments(
-        self: Self, user: Redditor, communities: List[str], label: Optional[str]
+        self: Self, user: Redditor, communities: list[str], label: str | None
     ) -> None:
         """Process the latest comment activity for the provided Reddit user."""
 
-        comments: List[Comment] = RedditAPI.GetUserComments(
+        comments: list[Comment] = RedditAPI.GetUserComments(
             self, user, self.checkpoint, communities
         )
 
@@ -174,7 +174,7 @@ class Snoopy:
 
             parent: Submission = comment.submission
 
-            if (label) and ((flairText := parent.link_flair_text)):
+            if (label) and (flairText := parent.link_flair_text):
                 # Ensure we only edit the flair once
                 if not flairText.endswith(" Replied)"):
                     parent.mod.flair(
@@ -182,7 +182,7 @@ class Snoopy:
                         text=f"{flairText} ({label} Replied)",
                     )
 
-            stickied: Optional[Comment] = RedditAPI.GetStickiedComment(self, parent)
+            stickied: Comment | None = RedditAPI.GetStickiedComment(self, parent)
 
             # If no stickied comment, or current stickied comment is not
             # owned by the client authorized user, create our own
@@ -211,9 +211,7 @@ class Snoopy:
             except Exception as e:
                 logger.error(f"Failed to edit comment, {e}")
 
-    def Notify(
-        self: Self, content: Union[Comment, Submission], label: Optional[str]
-    ) -> None:
+    def Notify(self: Self, content: Comment | Submission, label: str | None) -> None:
         """Report Redditor activity to the configured Discord webhook."""
 
         if not (url := environ.get("DISCORD_WEBHOOK_URL")):
