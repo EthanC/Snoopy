@@ -163,7 +163,7 @@ class RedditAPI:
             url += content.permalink
 
             if context:
-                url += "?context=1000"
+                url += "?context=5"
         elif type(content) is Redditor:
             url += f"/user/{content.name}"
 
