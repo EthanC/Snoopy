@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from os import environ
 from pathlib import Path
 from sys import exit, stdout
@@ -77,7 +77,7 @@ def Start() -> None:
         exit(1)
 
     client: Reddit = Authenticate()
-    checkpoint: int | None = Checkpoint()
+    checkpoint: int = Checkpoint()
 
     for user in config["users"]:
         account: Redditor | None = GetUser(client, user["username"])
@@ -96,10 +96,10 @@ def Start() -> None:
         Checkpoint(int(datetime.now(UTC).timestamp()))
 
 
-def Checkpoint(new: int | None = None) -> int | None:
+def Checkpoint(new: int | None = None) -> int:
     """
     Return the latest checkpoint, or save the provided checkpoint
-    to the local disk.
+    to the local disk and return it.
     """
 
     humanized: str | None = None
@@ -112,22 +112,20 @@ def Checkpoint(new: int | None = None) -> int | None:
 
         logger.info(f"Saved checkpoint at {humanized} ({new})")
 
-        return
+        return new
 
-    # Default to 24 hours ago if checkpoint is not found
-    checkpoint: int = int((datetime.now(UTC) - timedelta(hours=24)).timestamp())
+    # Default to now if checkpoint is not found
+    checkpoint: int = int(datetime.now(UTC).timestamp())
 
     if Path("checkpoint.txt").is_file():
         with open("checkpoint.txt", "r") as file:
             checkpoint = int(file.read())
 
-        humanized = datetime.fromtimestamp(checkpoint, UTC).strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
+        humanized = datetime.fromtimestamp(checkpoint, UTC).strftime("%Y-%m-%d %H:%M:%S")
 
         logger.info(f"Loaded checkpoint at {humanized} ({checkpoint})")
     else:
-        logger.info(f"Checkpoint not found, defaulted to 24 hours ago ({checkpoint})")
+        logger.info(f"Checkpoint not found, defaulted to now ({checkpoint})")
 
     return checkpoint
 
@@ -137,7 +135,7 @@ def CheckPosts(
     user: Redditor,
     communities: list[str],
     label: str | None,
-    checkpoint: int | None,
+    checkpoint: int,
 ) -> None:
     """Process the latest post activity for the provided Reddit user."""
 
@@ -160,7 +158,7 @@ def CheckComments(
     user: Redditor,
     communities: list[str],
     label: str | None,
-    checkpoint: int | None,
+    checkpoint: int,
 ) -> None:
     """Process the latest comment activity for the provided Reddit user."""
 

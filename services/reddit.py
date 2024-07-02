@@ -61,7 +61,7 @@ def GetUser(client: Reddit, username: str) -> Redditor | None:
 
 
 def GetUserPosts(
-    user: Redditor, checkpoint: int | None, communities: list[str]
+    user: Redditor, checkpoint: int, communities: list[str]
 ) -> list[Submission]:
     """Fetch the latest posts for the provided Reddit user."""
 
@@ -69,13 +69,13 @@ def GetUserPosts(
 
     try:
         for post in user.submissions.new(limit=None):
-            if checkpoint:
-                if int(post.created_utc) < checkpoint:
-                    logger.debug(
-                        f"Checkpoint reached while fetching posts ({len(posts):,}) for u/{user.name}"
-                    )
+            if int(post.created_utc) < checkpoint:
+                logger.debug(
+                    f"Checkpoint reached while fetching posts ({len(posts):,}) for u/{user.name}"
+                )
+                logger.trace(f"{int(post.created_utc)} < {checkpoint}")
 
-                    break
+                break
 
             if len(communities) > 0:
                 communityName: str = post.subreddit.display_name
@@ -101,7 +101,7 @@ def GetUserPosts(
 
 
 def GetUserComments(
-    user: Redditor, checkpoint: int | None, communities: list[str]
+    user: Redditor, checkpoint: int, communities: list[str]
 ) -> list[Comment]:
     """Fetch the latest comments for the provided Reddit user."""
 
@@ -109,13 +109,13 @@ def GetUserComments(
 
     try:
         for comment in user.comments.new(limit=None):
-            if checkpoint:
-                if int(comment.created_utc) < checkpoint:
-                    logger.debug(
-                        f"Checkpoint reached while fetching comments ({len(comments):,}) for u/{user.name}"
-                    )
+            if int(comment.created_utc) < checkpoint:
+                logger.debug(
+                    f"Checkpoint reached while fetching comments ({len(comments):,}) for u/{user.name}"
+                )
+                logger.trace(f"{int(comment.created_utc)} < {checkpoint}")
 
-                    break
+                break
 
             if len(communities) > 0:
                 communityName: str = comment.subreddit.display_name
