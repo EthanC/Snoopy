@@ -95,6 +95,9 @@ def GetUserPosts(
             f"Failed to fetch posts for Reddit user u/{user.name}"
         )
 
+    # Sort the array from oldest to newest.
+    posts = list(reversed(posts))
+
     logger.info(f"Fetched {len(posts):,} posts for Reddit user u/{user.name}")
 
     return posts
@@ -134,6 +137,9 @@ def GetUserComments(
         logger.opt(exception=e).error(
             f"Failed to fetch comments for Reddit user u/{user.name}"
         )
+
+    # Sort the array from oldest to newest.
+    comments = list(reversed(comments))
 
     logger.info(f"Fetched {len(comments):,} comments for Reddit user u/{user.name}")
 
