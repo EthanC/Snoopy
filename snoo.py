@@ -1,205 +1,214 @@
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from os import environ
 from pathlib import Path
 from sys import exit, stdout
-from typing import Any, Self
+from typing import Any
 
 import dotenv
 from discord_webhook import DiscordEmbed, DiscordWebhook
 from loguru import logger
 from loguru_discord import DiscordSink
-from praw.reddit import Comment, Reddit, Redditor, Submission
+from praw.reddit import (  # pyright: ignore [reportMissingTypeStubs]
+    Comment,
+    Reddit,
+    Redditor,
+    Submission,
+)
 
-from handlers import Intercept
-from services import RedditAPI
+from handlers.intercept import Intercept
+from services.reddit import (
+    Authenticate,
+    BuildQuote,
+    BuildURL,
+    ClientUsername,
+    GetStickiedComment,
+    GetUser,
+    GetUserComments,
+    GetUserPosts,
+    IsModerator,
+)
 
 
-class Snoopy:
+def Start() -> None:
+    """Initialize Snoopy and begin primary functionality."""
+
+    logger.info("Snoopy")
+    logger.info("https://github.com/EthanC/Snoopy")
+
+    # Reroute standard logging to Loguru
+    logging.basicConfig(handlers=[Intercept()], level=0, force=True)
+
+    if dotenv.load_dotenv():
+        logger.success("Loaded environment variables")
+
+    if level := environ.get("LOG_LEVEL"):
+        logger.remove()
+        logger.add(stdout, level=level)
+
+        logger.success(f"Set console logging level to {level}")
+
+    if url := environ.get("LOG_DISCORD_WEBHOOK_URL"):
+        logger.add(
+            DiscordSink(url),
+            level=environ["LOG_DISCORD_WEBHOOK_LEVEL"],
+            backtrace=False,
+        )
+
+        logger.success(f"Enabled logging to Discord webhook")
+        logger.trace(url)
+
+    if Path("config.json").is_file():
+        config: dict[str, Any] = {}
+
+        with open("config.json", "r") as file:
+            config = json.loads(file.read())
+
+        # Standardize case of community names for comparisons
+        for user in config["users"]:
+            if user.get("communities"):
+                user["communities"] = [
+                    community.lower() for community in user["communities"]
+                ]
+    else:
+        logger.critical("Failed to load configuration, config.json does not exist")
+
+        exit(1)
+
+    client: Reddit = Authenticate()
+    checkpoint: int | None = Checkpoint()
+
+    for user in config["users"]:
+        account: Redditor | None = GetUser(client, user["username"])
+        communities: list[str] = user.get("communities", [])
+        label: str | None = user.get("label")
+
+        if not account:
+            continue
+
+        CheckPosts(client, account, communities, label, checkpoint)
+        CheckComments(client, account, communities, label, checkpoint)
+
+        logger.info(f"Processed latest activity for u/{account.name}")
+
+    if not environ.get("DEBUG", False):
+        Checkpoint(int(datetime.now(UTC).timestamp()))
+
+
+def Checkpoint(new: int | None = None) -> int | None:
     """
-    Reddit user watcher that stickies comments and reports activity
-    via Discord.
-
-    https://github.com/EthanC/Snoopy
+    Return the latest checkpoint, or save the provided checkpoint
+    to the local disk.
     """
 
-    def Start(self: Self) -> None:
-        """Initialize Snoopy and begin primary functionality."""
+    humanized: str | None = None
 
-        logger.info("Snoopy")
-        logger.info("https://github.com/EthanC/Snoopy")
+    if new:
+        with open("checkpoint.txt", "w+") as file:
+            file.write(str(new))
 
-        # Reroute standard logging to Loguru
-        logging.basicConfig(handlers=[Intercept()], level=0, force=True)
+        humanized = datetime.fromtimestamp(new, UTC).strftime("%Y-%m-%d %H:%M:%S")
 
-        if dotenv.load_dotenv():
-            logger.success("Loaded environment variables")
-            logger.trace(environ)
+        logger.info(f"Saved checkpoint at {humanized} ({new})")
 
-        if level := environ.get("LOG_LEVEL"):
-            logger.remove()
-            logger.add(stdout, level=level)
+        return
 
-            logger.success(f"Set console logging level to {level}")
+    # Default to 24 hours ago if checkpoint is not found
+    checkpoint: int = int((datetime.now(UTC) - timedelta(hours=24)).timestamp())
 
-        if url := environ.get("LOG_DISCORD_WEBHOOK_URL"):
-            logger.add(
-                DiscordSink(url),
-                level=environ.get("LOG_DISCORD_WEBHOOK_LEVEL"),
-                backtrace=False,
-            )
+    if Path("checkpoint.txt").is_file():
+        with open("checkpoint.txt", "r") as file:
+            checkpoint = int(file.read())
 
-            logger.success(f"Enabled logging to Discord webhook")
-            logger.trace(url)
-
-        if Path("config.json").is_file():
-            self.config: dict[str, Any] = {}
-
-            with open("config.json", "r") as file:
-                self.config = json.loads(file.read())
-
-            # Standardize case of community names for comparisons
-            for user in self.config["users"]:
-                if user.get("communities"):
-                    user["communities"] = [
-                        community.lower() for community in user["communities"]
-                    ]
-
-            logger.trace(json.dumps(self.config))
-        else:
-            logger.critical("Failed to load configuration, config.json does not exist")
-
-            exit(1)
-
-        self.client: Reddit = RedditAPI.Authenticate(self)
-        self.checkpoint: int = Snoopy.Checkpoint(self)
-
-        for user in self.config["users"]:
-            account: Redditor | None = RedditAPI.GetUser(self, user["username"])
-            communities: list[str] = user.get("communities", [])
-            label: str | None = user.get("label")
-
-            if not account:
-                continue
-
-            Snoopy.CheckPosts(self, account, communities, label)
-            Snoopy.CheckComments(self, account, communities, label)
-
-            logger.info(f"Processed latest activity for u/{account.name}")
-
-        if not environ.get("DEBUG", False):
-            Snoopy.Checkpoint(self, int(datetime.utcnow().timestamp()))
-
-    def Checkpoint(self: Self, new: int | None = None) -> int | None:
-        """
-        Return the latest checkpoint, or save the provided checkpoint
-        to the local disk.
-        """
-
-        humanized: str | None = None
-
-        if new:
-            with open("checkpoint.txt", "w+") as file:
-                file.write(str(new))
-
-            humanized = datetime.utcfromtimestamp(new).strftime("%Y-%m-%d %H:%M:%S")
-
-            logger.info(f"Saved checkpoint at {humanized} ({new})")
-
-            return
-
-        # Default to 24 hours ago if checkpoint is not found
-        checkpoint: int = int(
-            (datetime.now(timezone.utc) - timedelta(hours=24)).timestamp()
+        humanized = datetime.fromtimestamp(checkpoint, UTC).strftime(
+            "%Y-%m-%d %H:%M:%S"
         )
 
-        if Path("checkpoint.txt").is_file():
-            with open("checkpoint.txt", "r") as file:
-                checkpoint = int(file.read())
+        logger.info(f"Loaded checkpoint at {humanized} ({checkpoint})")
+    else:
+        logger.info(f"Checkpoint not found, defaulted to 24 hours ago ({checkpoint})")
 
-            humanized = datetime.utcfromtimestamp(checkpoint).strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
+    return checkpoint
 
-            logger.info(f"Loaded checkpoint at {humanized} ({checkpoint})")
-        else:
-            logger.info(
-                f"Checkpoint not found, defaulted to 24 hours ago ({checkpoint})"
-            )
 
-        return checkpoint
+def CheckPosts(
+    client: Reddit,
+    user: Redditor,
+    communities: list[str],
+    label: str | None,
+    checkpoint: int | None,
+) -> None:
+    """Process the latest post activity for the provided Reddit user."""
 
-    def CheckPosts(
-        self: Self, user: Redditor, communities: list[str], label: str | None
-    ) -> None:
-        """Process the latest post activity for the provided Reddit user."""
+    posts: list[Submission] = GetUserPosts(user, checkpoint, communities)
 
-        posts: list[Submission] = RedditAPI.GetUserPosts(
-            self, user, self.checkpoint, communities
+    logger.info(f"Checking {len(posts):,} posts for Reddit user u/{user.name}")
+
+    for post in posts:
+        logger.success(f"New post by u/{user.name} in r/{post.subreddit.display_name}")
+        logger.debug(BuildURL(post))
+
+        Notify(post, label)
+
+        if IsModerator(client, post.subreddit):
+            post.mod.approve()
+
+
+def CheckComments(
+    client: Reddit,
+    user: Redditor,
+    communities: list[str],
+    label: str | None,
+    checkpoint: int | None,
+) -> None:
+    """Process the latest comment activity for the provided Reddit user."""
+
+    comments: list[Comment] = GetUserComments(user, checkpoint, communities)
+
+    logger.info(f"Checking {len(comments):,} comments for Reddit user u/{user.name}")
+
+    for comment in comments:
+        logger.success(
+            f"New comment by u/{user.name} in r/{comment.subreddit.display_name}"
         )
+        logger.debug(BuildURL(comment))
 
-        for post in posts:
-            logger.success(
-                f"New post by u/{user.name} in r/{post.subreddit.display_name}"
+        Notify(comment, label)
+
+        if not IsModerator(client, comment.subreddit):
+            logger.debug(
+                f"Client user {ClientUsername(client)} is not a Moderator of r/{comment.subreddit.display_name}, no further action for this comment"
             )
-            logger.debug(RedditAPI.BuildURL(self, post))
 
-            Snoopy.Notify(self, post, label)
+            continue
 
-            if RedditAPI.IsModerator(self, self.client, post.subreddit):
-                post.mod.approve()
+        comment.mod.approve()
 
-    def CheckComments(
-        self: Self, user: Redditor, communities: list[str], label: str | None
-    ) -> None:
-        """Process the latest comment activity for the provided Reddit user."""
+        parent: Submission = comment.submission  # pyright: ignore [reportUnknownVariableType]
 
-        comments: list[Comment] = RedditAPI.GetUserComments(
-            self, user, self.checkpoint, communities
-        )
-
-        for comment in comments:
-            logger.success(
-                f"New comment by u/{user.name} in r/{comment.subreddit.display_name}"
-            )
-            logger.debug(RedditAPI.BuildURL(self, comment))
-
-            Snoopy.Notify(self, comment, label)
-
-            if not RedditAPI.IsModerator(self, self.client, comment.subreddit):
-                continue
-
-            comment.mod.approve()
-
-            parent: Submission = comment.submission
-
-            if (label) and (flairText := parent.link_flair_text):
-                # Ensure we only edit the flair once
-                if not flairText.endswith(" Replied)"):
-                    parent.mod.flair(
-                        flair_template_id=parent.link_flair_template_id,
-                        text=f"{flairText} ({label} Replied)",
-                    )
-
-            stickied: Comment | None = RedditAPI.GetStickiedComment(self, parent)
-
-            # If no stickied comment, or current stickied comment is not
-            # owned by the client authorized user, create our own
-            if (not stickied) or (stickied.author != self.client.user.me()):
-                reply: Comment = parent.reply(
-                    RedditAPI.BuildQuote(self, comment, label)
+        if (label) and (flairText := parent.link_flair_text):  # pyright: ignore [reportUnknownVariableType]
+            # Ensure we only edit the flair once
+            if not flairText.endswith(" Replied)"):
+                parent.mod.flair(
+                    flair_template_id=parent.link_flair_template_id,
+                    text=f"{flairText} ({label} Replied)",
                 )
 
-                reply.mod.approve()
-                reply.mod.lock()
-                reply.mod.distinguish(sticky=True)
+        stickied: Comment | None = GetStickiedComment(parent)  # pyright: ignore [reportUnknownArgumentType]
 
-                return
+        if (not stickied) or (stickied.author != client.user.me()):
+            # If no stickied comment, or current stickied comment is not
+            # owned by the client authorized user, create our own
+            reply: Comment = parent.reply(BuildQuote(comment, label))  # pyright: ignore [reportAssignmentType]
 
+            reply.mod.approve()
+            reply.mod.lock()
+            reply.mod.distinguish(sticky=True)
+        else:
             # Append latest comment to existing stickied comment
             stickied.body += "\n\n"
-            stickied.body += RedditAPI.BuildQuote(self, comment, label)
+            stickied.body += BuildQuote(comment, label)
 
             if len(stickied.body) >= 10000:
                 logger.warning("Cannot edit comment due to exceeding the length limit")
@@ -211,49 +220,48 @@ class Snoopy:
             except Exception as e:
                 logger.error(f"Failed to edit comment, {e}")
 
-    def Notify(self: Self, content: Comment | Submission, label: str | None) -> None:
-        """Report Redditor activity to the configured Discord webhook."""
 
-        if not (url := environ.get("DISCORD_WEBHOOK_URL")):
-            logger.info("Discord webhook for notifications is not set")
+def Notify(content: Comment | Submission, label: str | None) -> None:
+    """Report Redditor activity to the configured Discord webhook."""
 
-            return
+    if not (url := environ.get("DISCORD_WEBHOOK_URL")):
+        logger.info("Discord webhook for notifications is not set")
 
-        author: str = f"u/{content.author.name}"
+        return
 
-        if label:
-            author += f" ({label})"
+    author: str = f"u/{content.author.name}"
 
-        embed: DiscordEmbed = DiscordEmbed()
+    if label:
+        author += f" ({label})"
 
-        embed.set_color("FF5700")
-        embed.set_author(
-            author,
-            url=RedditAPI.BuildURL(self, content.author),
-            icon_url=content.author.icon_img,
-        )
-        embed.set_footer(text="Reddit", icon_url="https://i.imgur.com/ucGCjfj.png")
-        embed.set_timestamp(content.created_utc)
+    embed: DiscordEmbed = DiscordEmbed()
 
-        if type(content) is Submission:
-            embed.set_title(content.title)
-            embed.set_url(RedditAPI.BuildURL(self, content))
+    embed.set_color("FF5700")
+    embed.set_author(
+        author, url=BuildURL(content.author), icon_url=content.author.icon_img
+    )
+    embed.set_footer(text="Reddit", icon_url="https://i.imgur.com/ucGCjfj.png")
+    embed.set_timestamp(content.created_utc)
 
-            # Handle various submission types
-            if (hasattr(content, "selftext")) and (content.selftext):
-                embed.set_description(f">>> {content.selftext[0:4000]}")
-            elif (hasattr(content, "url")) and (content.url):
-                embed.set_description(content.url[0:4000])
-        elif type(content) is Comment:
-            embed.set_title(f"Comment in r/{content.subreddit.display_name}")
-            embed.set_url(RedditAPI.BuildURL(self, content, True))
-            embed.set_description(f">>> {content.body[0:4000]}")
+    if type(content) is Submission:
+        embed.set_title(content.title)
+        embed.set_url(BuildURL(content))
 
-        DiscordWebhook(url=url, embeds=[embed], rate_limit_retry=True).execute()
+        # Handle various submission types
+        if (hasattr(content, "selftext")) and (content.selftext):
+            embed.set_description(f">>> {content.selftext[0:4000]}")
+        elif (hasattr(content, "url")) and (content.url):
+            embed.set_description(content.url[0:4000])
+    elif type(content) is Comment:
+        embed.set_title(f"Comment in r/{content.subreddit.display_name}")
+        embed.set_url(BuildURL(content, True))
+        embed.set_description(f">>> {content.body[0:4000]}")
+
+    DiscordWebhook(url=url, embeds=[embed], rate_limit_retry=True).execute()
 
 
 if __name__ == "__main__":
     try:
-        Snoopy.Start(Snoopy)
+        Start()
     except KeyboardInterrupt:
         exit()
