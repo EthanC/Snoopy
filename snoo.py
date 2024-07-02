@@ -119,7 +119,10 @@ def Checkpoint(new: int | None = None) -> int:
 
     if Path("checkpoint.txt").is_file():
         with open("checkpoint.txt", "r") as file:
-            checkpoint = int(file.read())
+            try:
+                checkpoint = int(file.read())
+            except Exception as e:
+                logger.opt(exception=e).warning("Failed to read local checkpoint")
 
         humanized = datetime.fromtimestamp(checkpoint, UTC).strftime("%Y-%m-%d %H:%M:%S")
 
