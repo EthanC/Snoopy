@@ -1,6 +1,6 @@
 # Snoopy
 
-![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/EthanC/Snoopy/ci.yml?branch=main) ![Docker Pulls](https://img.shields.io/docker/pulls/ethanchrisp/snoopy?label=Docker%20Pulls) ![Docker Image Size (tag)](https://img.shields.io/docker/image-size/ethanchrisp/snoopy/latest?label=Docker%20Image%20Size)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/EthanC/Snoopy/ci.yaml?branch=main) ![Docker Pulls](https://img.shields.io/docker/pulls/ethanchrisp/snoopy?label=Docker%20Pulls) ![Docker Image Size (tag)](https://img.shields.io/docker/image-size/ethanchrisp/snoopy/latest?label=Docker%20Image%20Size)
 
 Snoopy is a Reddit user watcher that stickies comments and reports activity via Discord.
 
@@ -60,7 +60,7 @@ services:
 
 Snoopy is built for [Python 3.12](https://www.python.org/) or greater.
 
-1. Install required dependencies using [Poetry](https://python-poetry.org/): `poetry install --no-root`
+1. Install required dependencies using [uv](https://github.com/astral-sh/uv): `uv sync`
 2. Rename `.env_example` to `.env`, then provide the environment variables.
 3. Rename `config_example.json` to `config.json`, then provide the configurable variables.
 4. Start Snoopy: `python snoo.py`
