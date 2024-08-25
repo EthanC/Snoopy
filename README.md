@@ -2,7 +2,7 @@
 
 ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/EthanC/Snoopy/ci.yaml?branch=main) ![Docker Pulls](https://img.shields.io/docker/pulls/ethanchrisp/snoopy?label=Docker%20Pulls) ![Docker Image Size (tag)](https://img.shields.io/docker/image-size/ethanchrisp/snoopy/latest?label=Docker%20Image%20Size)
 
-Snoopy is a Reddit user watcher that stickies comments and reports activity via Discord.
+Snoopy monitors users on Reddit and notifies about post activity via Discord.
 
 <p align="center">
     <img src="https://i.imgur.com/x3eLTpA.png" draggable="false">
@@ -36,7 +36,7 @@ Regardless of your chosen setup method, Snoopy is intended for use with a task s
 
 Rename `config_example.json` to `config.json`, then provide the configurable variables.
 
-Modify the following `docker-compose.yml` example file, then run `docker compose up`.
+Modify the following `compose.yaml` example file, then run `docker compose up`.
 
 ```yml
 services:
