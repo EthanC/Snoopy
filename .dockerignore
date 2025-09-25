@@ -8,7 +8,7 @@ env.bak/
 venv.bak/
 
 # Configuration
-config.json
+config.toml
 
 # Temporary
 checkpoint.txt
