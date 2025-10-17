@@ -314,11 +314,11 @@ def notify(content: Submission | Comment, label: str | None, webhook_url: str) -
 
     if isinstance(content, Submission):
         if hasattr(content, "selftext") and content.selftext:
-            body.set_content(Markdown.block_quote(content.selftext))
+            body.set_content(Markdown.block_quote(content.selftext[:3096]))
         elif hasattr(content, "url") and content.url:
-            body.set_content(Markdown.block_quote(content.url))
+            body.set_content(Markdown.block_quote(content.url[:3096]))
     else:
-        body.set_content(Markdown.block_quote(content.body))
+        body.set_content(Markdown.block_quote(content.body[:3096]))
 
     footer: TextDisplay = TextDisplay(
         content=Markdown.subtext(Timestamp.long_date_time(content.created_utc))
@@ -330,10 +330,13 @@ def notify(content: Submission | Comment, label: str | None, webhook_url: str) -
             accent_color="FF4500",
         )
     )
+
+    content_url: str = build_url(content)
+
     relay.add_component(
         ActionRow(
             components=[
-                LinkButton(label="View on Reddit", url=build_url(content)),
+                LinkButton(label="View on Reddit", url=content_url),
                 LinkButton(
                     label="Powered by Snoopy", url="https://github.com/EthanC/Snoopy"
                 ),
@@ -341,7 +344,10 @@ def notify(content: Submission | Comment, label: str | None, webhook_url: str) -
         )
     )
 
-    relay.execute()
+    try:
+        relay.execute()
+    except Exception as e:
+        logger.opt(exception=e).error(f"Failed to send notification for Reddit {"comment" if isinstance(content, Comment) else "post"} {content_url}")
 
 
 if __name__ == "__main__":
