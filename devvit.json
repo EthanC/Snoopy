@@ -1,0 +1,89 @@
+{
+  "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
+  "name": "snoopy-app",
+  "server": {
+    "dir": "dist/server",
+    "entry": "index.cjs"
+  },
+  "menu": {
+    "items": [
+      {
+        "label": "Snoopy: Add watched user",
+        "description": "Add a Reddit user and Discord webhook to this installation's watchlist.",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/add-watch"
+      },
+      {
+        "label": "Snoopy: Edit watched user",
+        "description": "Change a watched user's filters, interval, webhook, or status.",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/edit-watch"
+      },
+      {
+        "label": "Snoopy: Remove watched user",
+        "description": "Remove a user and their stored polling state from this installation.",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/remove-watch"
+      },
+      {
+        "label": "Snoopy: List watched users",
+        "description": "View this installation's watchlist and delivery status.",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/list-watches"
+      },
+      {
+        "label": "Snoopy: Send notification",
+        "description": "Send this post to its author's configured Discord webhook.",
+        "location": "post",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/send-notification"
+      },
+      {
+        "label": "Snoopy: Send notification",
+        "description": "Send this comment to its author's configured Discord webhook.",
+        "location": "comment",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/send-notification"
+      }
+    ]
+  },
+  "forms": {
+    "addWatch": "/internal/form/add-watch",
+    "selectEditWatch": "/internal/form/select-edit-watch",
+    "editWatch": "/internal/form/edit-watch",
+    "removeWatch": "/internal/form/remove-watch",
+    "closeWatchlist": "/internal/form/close-watchlist"
+  },
+  "scheduler": {
+    "tasks": {
+      "poll-watchlist": {
+        "endpoint": "/internal/scheduler/poll-watchlist",
+        "cron": "*/1 * * * *"
+      },
+      "cleanup-seen": {
+        "endpoint": "/internal/scheduler/cleanup-seen",
+        "cron": "17 3 * * *"
+      }
+    }
+  },
+  "triggers": {
+    "onAppInstall": "/internal/triggers/on-app-install",
+    "onAppUpgrade": "/internal/triggers/on-app-upgrade"
+  },
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch"
+  },
+  "permissions": {
+    "http": {
+      "enable": true,
+      "domains": ["discord.com"]
+    },
+    "reddit": true,
+    "redis": true
+  }
+}

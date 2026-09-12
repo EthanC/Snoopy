@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "devvit-docs": {
+      "source": "reddit/devvit-skills",
+      "sourceType": "github",
+      "skillPath": "skills/devvit-docs/SKILL.md",
+      "computedHash": "cae1493d2c04a5483d5be473e5158080dd1293eccf620717348b95a57b5ded95"
+    }
+  }
+}
