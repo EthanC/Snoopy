@@ -147,14 +147,28 @@ export function activityFromPost(
   post: Post,
   config: WatchConfig
 ): RedditActivity {
-  return mapPost(post, cachedProfile(config));
+  return activityFromPostProfile(post, cachedProfile(config));
 }
 
 export function activityFromComment(
   comment: Comment,
   config: WatchConfig
 ): RedditActivity {
-  return mapComment(comment, cachedProfile(config));
+  return activityFromCommentProfile(comment, cachedProfile(config));
+}
+
+export function activityFromPostProfile(
+  post: Post,
+  profile: WatchProfile
+): RedditActivity {
+  return mapPost(post, profile);
+}
+
+export function activityFromCommentProfile(
+  comment: Comment,
+  profile: WatchProfile
+): RedditActivity {
+  return mapComment(comment, profile);
 }
 
 function postListing(config: WatchConfig): Listing<Post> {

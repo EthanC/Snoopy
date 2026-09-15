@@ -6,6 +6,7 @@ import {
   normalizeUsername,
   normalizeWebhookUrl,
   parseInterval,
+  parseLogLevel,
   ValidationError,
 } from './validation.ts';
 
@@ -122,4 +123,11 @@ void test('bounds subreddit filter count and raw input length', () => {
     ValidationError
   );
   assert.throws(() => normalizeSubreddits('a'.repeat(5_001)), ValidationError);
+});
+
+void test('accepts only supported log levels', () => {
+  assert.equal(parseLogLevel(['warn']), 'warn');
+  assert.equal(parseLogLevel('error'), 'error');
+  assert.throws(() => parseLogLevel(['debug']), ValidationError);
+  assert.throws(() => parseLogLevel([]), ValidationError);
 });

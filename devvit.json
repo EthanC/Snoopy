@@ -36,6 +36,13 @@
         "endpoint": "/internal/menu/list-watches"
       },
       {
+        "label": "Snoopy: Configure Logging",
+        "description": "Forward Snoopy logs to an optional Discord webhook.",
+        "location": "subreddit",
+        "forUserType": "moderator",
+        "endpoint": "/internal/menu/configure-logging"
+      },
+      {
         "label": "Snoopy: Send notification",
         "description": "Send this post to its author's configured Discord webhook.",
         "location": "post",
@@ -56,6 +63,7 @@
     "selectEditWatch": "/internal/form/select-edit-watch",
     "editWatch": "/internal/form/edit-watch",
     "removeWatch": "/internal/form/remove-watch",
+    "configureLogging": "/internal/form/configure-logging",
     "closeWatchlist": "/internal/form/close-watchlist"
   },
   "scheduler": {

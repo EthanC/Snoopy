@@ -6,6 +6,14 @@ export const REDDIT_HISTORY_LIMIT = 1_000;
 export const REDDIT_HISTORY_PAGE_SIZE = 100;
 export const SEEN_RETENTION_SECONDS = 30 * 24 * 60 * 60;
 export const SEEN_MAX_PER_USER = 5_000;
+export const LOG_LEVELS = ['info', 'warn', 'error'] as const;
+
+export type LogLevel = (typeof LOG_LEVELS)[number];
+
+export type LoggingConfig = {
+  level: LogLevel;
+  webhookUrl: string;
+};
 
 export type WatchConfig = {
   username: string;

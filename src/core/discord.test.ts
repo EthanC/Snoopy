@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { deliverToDiscord, verifyDiscordWebhook } from './discord.ts';
+import {
+  deliverLogToDiscord,
+  deliverToDiscord,
+  verifyDiscordWebhook,
+} from './discord.ts';
 import type { RedditActivity } from './types.ts';
 
 const webhook = `https://discord.com/api/webhooks/12345678901234567/${'a'.repeat(64)}`;
@@ -84,6 +88,35 @@ void test('sends a confirmed webhook message with mentions disabled', async () =
     payload.components[1].components[1].url,
     'https://github.com/EthanC/Snoopy'
   );
+});
+
+void test('sends logs as confirmed plaintext messages', async () => {
+  let requestUrl = '';
+  let requestBody = '';
+  const mockFetch = (async (input: URL | RequestInfo, init?: RequestInit) => {
+    requestUrl = input.toString();
+    requestBody = String(init?.body);
+    return new Response('{}', { status: 200 });
+  }) as typeof fetch;
+
+  assert.equal(
+    await deliverLogToDiscord(
+      `${webhook}?thread_id=98765432109876543`,
+      '```json\n{"level":"warn"}\n```',
+      mockFetch
+    ),
+    true
+  );
+
+  const url = new URL(requestUrl);
+  assert.equal(url.searchParams.get('wait'), 'true');
+  assert.equal(url.searchParams.get('thread_id'), '98765432109876543');
+  assert.equal(url.searchParams.has('with_components'), false);
+  const payload = JSON.parse(requestBody);
+  assert.equal(payload.content, '```json\n{"level":"warn"}\n```');
+  assert.deepEqual(payload.allowed_mentions, { parse: [] });
+  assert.equal(payload.components, undefined);
+  assert.equal(payload.embeds, undefined);
 });
 
 void test('keeps the joined-date profile component when no bio is available', async () => {

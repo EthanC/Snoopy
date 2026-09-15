@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { reddit } from '@devvit/web/server';
 import type { UiResponse } from '@devvit/web/shared';
-import { requireModerator } from '../core/authorization';
+import { requireModerator } from '../core/authorization.ts';
 import {
   createWatchConfig,
   decodeWatchRevision,
@@ -9,15 +9,15 @@ import {
   updateStateForEdit,
   updateWatchConfig,
   watchNeedsBaseline,
-} from '../core/configuration';
-import { verifyDiscordWebhook } from '../core/discord';
-import { editWatchForm } from '../core/forms';
-import { errorName, log } from '../core/logger';
+} from '../core/configuration.ts';
+import { verifyDiscordWebhook } from '../core/discord.ts';
+import { editWatchForm } from '../core/forms.ts';
+import { errorName, log } from '../core/logger.ts';
 import {
   DEFAULT_AVATAR_URL,
   establishBaseline,
   redditUserProfile,
-} from '../core/reddit-history';
+} from '../core/reddit-history.ts';
 import {
   acquireConfigLock,
   acquirePollLock,
@@ -25,15 +25,19 @@ import {
   getWatch,
   releaseConfigLock,
   releasePollLock,
+  removeLoggingConfig,
   removeWatch,
+  saveLoggingConfig,
   saveWatchWithState,
-} from '../core/storage';
+} from '../core/storage.ts';
 import {
   normalizeUsername,
+  normalizeWebhookUrl,
   parseBoolean,
+  parseLogLevel,
   parseWatchInput,
   ValidationError,
-} from '../core/validation';
+} from '../core/validation.ts';
 
 type FormValues = Record<string, unknown>;
 type MutationLocks = {
@@ -273,6 +277,37 @@ forms.post('/remove-watch', async (c) => {
     return c.json<UiResponse>(success(`Removed u/${config.displayUsername}.`));
   } catch (error) {
     log.warn('watch_remove_failed', { errorType: errorName(error) });
+    return c.json<UiResponse>(failure(error));
+  } finally {
+    await releaseMutationLocks(locks);
+  }
+});
+
+forms.post('/configure-logging', async (c) => {
+  let locks: MutationLocks | undefined;
+  try {
+    await requireModerator();
+    const values = await c.req.json<FormValues>();
+    const level = parseLogLevel(values.level);
+    const webhookValue =
+      typeof values.webhookUrl === 'string' ? values.webhookUrl.trim() : '';
+    const webhookUrl = webhookValue
+      ? normalizeWebhookUrl(webhookValue)
+      : undefined;
+    if (webhookUrl) await verifyDiscordWebhook(webhookUrl);
+
+    locks = await acquireMutationLocks();
+    if (webhookUrl) {
+      await saveLoggingConfig({ level, webhookUrl });
+      log.info('logging_configured', { configuredLevel: level });
+      return c.json<UiResponse>(success(`Discord logging set to ${level}.`));
+    }
+
+    await removeLoggingConfig();
+    log.info('logging_removed');
+    return c.json<UiResponse>(success('Discord logging is disabled.'));
+  } catch (error) {
+    log.warn('logging_configuration_failed', { errorType: errorName(error) });
     return c.json<UiResponse>(failure(error));
   } finally {
     await releaseMutationLocks(locks);

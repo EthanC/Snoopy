@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { addWatchForm, editWatchForm, watchlistForm } from './forms.ts';
+import {
+  addWatchForm,
+  editWatchForm,
+  loggingConfigForm,
+  watchlistForm,
+} from './forms.ts';
 import type { WatchConfig } from './types.ts';
 
 const config: WatchConfig = {
@@ -53,4 +58,26 @@ void test('watchlist form has one close action', () => {
 
   assert.equal(form.acceptLabel, 'Close');
   assert.equal(form.cancelLabel, undefined);
+});
+
+void test('logging form has a level dropdown and optional secret webhook', () => {
+  const form = loggingConfigForm({
+    level: 'warn',
+    webhookUrl: config.webhookUrl,
+  });
+
+  assert.equal(form.fields.length, 2);
+  const [level, webhook] = form.fields;
+  assert.ok(level && level.type === 'select');
+  assert.deepEqual(level.options, [
+    { label: 'INFO', value: 'info' },
+    { label: 'WARN', value: 'warn' },
+    { label: 'ERROR', value: 'error' },
+  ]);
+  assert.deepEqual(level.defaultValue, ['warn']);
+  assert.ok(webhook && webhook.type === 'string');
+  assert.equal(webhook.required, undefined);
+  assert.equal(webhook.isSecret, true);
+  assert.equal(webhook.scope, 'installation');
+  assert.equal(webhook.defaultValue, undefined);
 });

@@ -5,18 +5,24 @@ import { requireModerator } from '../core/authorization.ts';
 import { deliverToDiscord } from '../core/discord.ts';
 import {
   addWatchForm,
+  loggingConfigForm,
   removeWatchForm,
   selectEditForm,
   watchlistForm,
 } from '../core/forms.ts';
 import { errorName, log } from '../core/logger.ts';
 import {
+  DEFAULT_AVATAR_URL,
   activityFromComment,
+  activityFromCommentProfile,
   activityFromPost,
+  activityFromPostProfile,
+  redditUserProfile,
   resolveCommentParent,
 } from '../core/reddit-history.ts';
 import {
   acquirePollLock,
+  getLoggingConfig,
   getState,
   getWatch,
   listWatches,
@@ -25,6 +31,7 @@ import {
   saveState,
 } from '../core/storage.ts';
 import { normalizeUsername, redactWebhookUrl } from '../core/validation.ts';
+import type { RedditActivity, WatchProfile } from '../core/types.ts';
 
 export const menu = new Hono();
 
@@ -126,6 +133,25 @@ menu.post('/list-watches', async (c) => {
   }
 });
 
+menu.post('/configure-logging', async (c) => {
+  try {
+    await requireModerator();
+    const config = await getLoggingConfig();
+    return c.json<UiResponse>({
+      showForm: {
+        name: 'configureLogging',
+        form: loggingConfigForm(config),
+      },
+    });
+  } catch (error) {
+    return c.json<UiResponse>(
+      toast(
+        error instanceof Error ? error.message : 'Unable to configure logging.'
+      )
+    );
+  }
+});
+
 menu.post('/send-notification', async (c) => {
   let username: string | undefined;
   let lockToken: string | undefined;
@@ -156,19 +182,67 @@ menu.post('/send-notification', async (c) => {
     }
 
     const config = await getWatch(username);
-    if (!config) {
-      throw new Error(`u/${target.value.authorName} is not watched.`);
+    let webhookUrl: string;
+    let activity: RedditActivity;
+    if (config) {
+      webhookUrl = config.webhookUrl;
+      activity =
+        target.type === 'comment'
+          ? activityFromComment(target.value, config)
+          : activityFromPost(target.value, config);
+    } else {
+      const loggingConfig = await getLoggingConfig();
+      if (!loggingConfig) {
+        throw new Error(`u/${target.value.authorName} is not watched.`);
+      }
+      const [author, avatarUrl] = await Promise.all([
+        reddit
+          .getUserByUsername(target.value.authorName)
+          .catch(() => undefined),
+        redditUserProfile
+          .getAvatarUrl(target.value.authorName)
+          .catch(() => undefined),
+      ]);
+      const profile: WatchProfile = {
+        displayName:
+          author?.displayName || author?.username || target.value.authorName,
+        avatarUrl: avatarUrl || DEFAULT_AVATAR_URL,
+        bio: author?.about.trim() || undefined,
+        joinedAtMs:
+          author?.createdAt.getTime() ?? target.value.createdAt.getTime(),
+        nsfw: author?.nsfw ?? false,
+      };
+      webhookUrl = loggingConfig.webhookUrl;
+      activity =
+        target.type === 'comment'
+          ? activityFromCommentProfile(target.value, profile)
+          : activityFromPostProfile(target.value, profile);
     }
-    const activity = await resolveCommentParent(
-      target.type === 'comment'
-        ? activityFromComment(target.value, config)
-        : activityFromPost(target.value, config)
-    );
+    activity = await resolveCommentParent(activity);
     const result = await deliverToDiscord(
-      config.webhookUrl,
+      webhookUrl,
       activity,
       context.subredditName
     );
+
+    if (!config) {
+      if (result.ok) {
+        log.info('manual_notification_sent', {
+          activityType: activity.type,
+          destination: 'logging_webhook',
+        });
+        return c.json<UiResponse>(
+          success(`Sent the notification for u/${target.value.authorName}.`)
+        );
+      }
+      log.warn('manual_notification_failed', {
+        activityType: activity.type,
+        destination: 'logging_webhook',
+        kind: result.kind,
+      });
+      return c.json<UiResponse>(toast(result.message));
+    }
+
     const state = await getState(username);
     state.webhookBlocked = !result.ok && result.kind === 'blocked';
 

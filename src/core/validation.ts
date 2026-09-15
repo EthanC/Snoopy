@@ -1,7 +1,9 @@
 import {
   DEFAULT_INTERVAL_SECONDS,
+  LOG_LEVELS,
   MAX_INTERVAL_SECONDS,
   MIN_INTERVAL_SECONDS,
+  type LogLevel,
   type WatchInput,
 } from './types.ts';
 
@@ -114,6 +116,17 @@ export function redactWebhookUrl(input: string): string {
 
 export function parseBoolean(value: unknown): boolean {
   return value === true || value === 'true' || value === 1 || value === '1';
+}
+
+export function parseLogLevel(value: unknown): LogLevel {
+  const selected = Array.isArray(value) ? value[0] : value;
+  if (
+    typeof selected !== 'string' ||
+    !(LOG_LEVELS as readonly string[]).includes(selected)
+  ) {
+    throw new ValidationError('Select a valid log level.');
+  }
+  return selected as LogLevel;
 }
 
 export function parseInterval(value: unknown): number {

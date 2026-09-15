@@ -13,6 +13,7 @@ Snoopy tracks users on Reddit and sends post notifications to Discord.
 - Render Reddit profiles, content, images, timestamps, and source links with Discord components.
 - Pause a watch without removing its settings.
 - Forward a watched user's post or comment manually from its Reddit moderator menu.
+- Forward logs at a selected severity to an optional Discord webhook.
 - Manage each subreddit's watchlist through native Reddit menus and forms.
 - Run entirely on Devvit without a separate server or Discord bot.
 
@@ -50,9 +51,13 @@ Use the subreddit's three-dot menu to manage its watchlist:
 - **Snoopy: Edit watched user** changes filters, interval, activity types, status, or destination. Leave **New Discord webhook URL** blank to keep the current webhook.
 - **Snoopy: List watched users** shows each watch's settings, status, and latest polling or delivery error.
 - **Snoopy: Remove watched user** removes the watch and its polling state. It does not delete the Discord webhook or previous messages.
-- **Snoopy: Send notification** on a post or comment immediately forwards that activity when its author is watched.
+- **Snoopy: Send notification** on a post or comment immediately forwards that activity to the author's watch webhook, or to the logging webhook when the author is not watched.
 
 Resuming notifications skips activity created during the pause. Enabling posts or comments establishes a new baseline for that activity type. Editing filters, intervals, or webhooks does not replay previously checked activity.
+
+## Discord Logging
+
+Select **Snoopy: Configure Logging** from the subreddit's three-dot menu, choose the minimum log level, and enter a Discord webhook URL. Snoopy sends events at that level or higher as plaintext JSON code blocks. Open the form again and submit a blank webhook URL to remove the logging configuration.
 
 ## Troubleshooting
 

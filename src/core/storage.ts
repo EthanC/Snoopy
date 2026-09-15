@@ -1,7 +1,9 @@
 import { redis } from '@devvit/web/server';
 import {
+  LOG_LEVELS,
   SEEN_MAX_PER_USER,
   SEEN_RETENTION_SECONDS,
+  type LoggingConfig,
   type WatchConfig,
   type WatchState,
 } from './types.ts';
@@ -13,6 +15,7 @@ const stateKey = (username: string) => `snoopy:state:${username}`;
 const seenKey = (username: string) => `snoopy:seen:${username}`;
 const lockKey = (username: string) => `snoopy:lock:${username}`;
 const CONFIG_LOCK_KEY = 'snoopy:lock:configuration';
+const LOGGING_CONFIG_KEY = 'snoopy:logging';
 
 const bool = (value: boolean) => (value ? '1' : '0');
 const parseBool = (value: string | undefined) => value === '1';
@@ -60,6 +63,31 @@ export async function listWatches(): Promise<WatchConfig[]> {
     members.map(({ member }) => getWatch(member))
   );
   return watches.filter((watch): watch is WatchConfig => watch !== undefined);
+}
+
+export async function getLoggingConfig(): Promise<LoggingConfig | undefined> {
+  const fields = await redis.hGetAll(LOGGING_CONFIG_KEY);
+  if (
+    !fields.webhookUrl ||
+    !(LOG_LEVELS as readonly string[]).includes(fields.level ?? '')
+  ) {
+    return undefined;
+  }
+  return {
+    level: fields.level as LoggingConfig['level'],
+    webhookUrl: fields.webhookUrl,
+  };
+}
+
+export async function saveLoggingConfig(config: LoggingConfig): Promise<void> {
+  await redis.hSet(LOGGING_CONFIG_KEY, {
+    level: config.level,
+    webhookUrl: config.webhookUrl,
+  });
+}
+
+export async function removeLoggingConfig(): Promise<void> {
+  await redis.del(LOGGING_CONFIG_KEY);
 }
 
 function configFields(config: WatchConfig): Record<string, string> {

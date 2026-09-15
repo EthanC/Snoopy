@@ -2,10 +2,11 @@ import type { Form, FormField } from '@devvit/shared-types/shared/form.js';
 import { encodeWatchRevision } from './configuration.ts';
 import {
   DEFAULT_INTERVAL_SECONDS,
+  LOG_LEVELS,
   MAX_INTERVAL_SECONDS,
   MIN_INTERVAL_SECONDS,
 } from './types.ts';
-import type { WatchConfig } from './types.ts';
+import type { LoggingConfig, WatchConfig } from './types.ts';
 
 const commonFields = (config?: WatchConfig): FormField[] => [
   config
@@ -168,5 +169,38 @@ export function watchlistForm(summary: string): Form {
       },
     ],
     acceptLabel: 'Close',
+  };
+}
+
+export function loggingConfigForm(config?: LoggingConfig): Form {
+  return {
+    title: 'Configure logging',
+    description:
+      'Matching log events are sent to Discord as plaintext code blocks.',
+    fields: [
+      {
+        name: 'level',
+        label: 'Minimum log level',
+        type: 'select',
+        required: true,
+        options: LOG_LEVELS.map((level) => ({
+          label: level.toUpperCase(),
+          value: level,
+        })),
+        defaultValue: [config?.level ?? 'info'],
+      },
+      {
+        name: 'webhookUrl',
+        label: 'Discord webhook URL',
+        type: 'string',
+        isSecret: true,
+        scope: 'installation',
+        helpText: config
+          ? 'Enter a webhook URL to update logging, or leave blank to remove it.'
+          : 'Leave blank to keep Discord logging disabled.',
+      },
+    ],
+    acceptLabel: config ? 'Save or remove' : 'Save',
+    cancelLabel: 'Cancel',
   };
 }

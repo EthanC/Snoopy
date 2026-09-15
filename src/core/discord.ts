@@ -134,6 +134,37 @@ export async function verifyDiscordWebhook(
   }
 }
 
+export async function deliverLogToDiscord(
+  webhookUrl: string,
+  content: string,
+  fetchImpl: Fetch = fetch
+): Promise<boolean> {
+  let url: URL;
+  try {
+    url = new URL(normalizeWebhookUrl(webhookUrl));
+  } catch {
+    return false;
+  }
+  url.searchParams.delete('with_components');
+  url.searchParams.set('wait', 'true');
+
+  try {
+    const response = await fetchImpl(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      redirect: 'error',
+      signal: AbortSignal.timeout(DISCORD_TIMEOUT_MS),
+      body: JSON.stringify({
+        content,
+        allowed_mentions: { parse: [] },
+      }),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function deliverToDiscord(
   webhookUrl: string,
   activity: RedditActivity,
