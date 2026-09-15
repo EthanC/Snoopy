@@ -282,7 +282,7 @@ forms.post('/remove-watch', async (c) => {
 forms.post('/close-watchlist', async (c) => {
   try {
     await requireModerator();
-    return c.json<UiResponse>({ showToast: 'Watchlist closed.' });
+    return c.json<UiResponse>({});
   } catch (error) {
     return c.json<UiResponse>(failure(error));
   }
