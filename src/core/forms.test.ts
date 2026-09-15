@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { addWatchForm, editWatchForm } from './forms.ts';
+import { addWatchForm, editWatchForm, watchlistForm } from './forms.ts';
 import type { WatchConfig } from './types.ts';
 
 const config: WatchConfig = {
@@ -46,4 +46,11 @@ void test('edit form embeds the current watch settings', () => {
   assert.equal(defaultValue('postSubreddits'), 'news, worldnews');
   assert.equal(defaultValue('commentSubreddits'), 'askreddit');
   assert.equal(defaultValue('intervalSeconds'), 300);
+});
+
+void test('watchlist form has one close action', () => {
+  const form = watchlistForm('No watched users.');
+
+  assert.equal(form.acceptLabel, 'Close');
+  assert.equal(form.cancelLabel, undefined);
 });

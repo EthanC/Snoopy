@@ -168,6 +168,5 @@ export function watchlistForm(summary: string): Form {
       },
     ],
     acceptLabel: 'Close',
-    cancelLabel: 'Close',
   };
 }
