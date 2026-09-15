@@ -13,6 +13,7 @@ export type LogLevel = (typeof LOG_LEVELS)[number];
 export type LoggingConfig = {
   level: LogLevel;
   webhookUrl: string;
+  upgradeEventsEnabled: boolean;
 };
 
 export type WatchConfig = {

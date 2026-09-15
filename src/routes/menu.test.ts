@@ -64,10 +64,17 @@ void test('opens the optional Discord logging form', async (t) => {
   );
 
   const body = (await response.json()) as {
-    showForm?: { name?: string; form?: { fields?: unknown[] } };
+    showForm?: {
+      name?: string;
+      form?: { fields?: { name?: string; defaultValue?: unknown }[] };
+    };
   };
   assert.equal(body.showForm?.name, 'configureLogging');
-  assert.equal(body.showForm?.form?.fields?.length, 2);
+  assert.equal(body.showForm?.form?.fields?.length, 3);
+  const upgradeEvents = body.showForm?.form?.fields?.find(
+    (field) => field.name === 'upgradeEventsEnabled'
+  );
+  assert.equal(upgradeEvents?.defaultValue, true);
 });
 
 void test('manually sends selected posts and comments and marks them processed', async (t) => {

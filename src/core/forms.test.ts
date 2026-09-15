@@ -64,10 +64,11 @@ void test('logging form has a level dropdown and optional secret webhook', () =>
   const form = loggingConfigForm({
     level: 'warn',
     webhookUrl: config.webhookUrl,
+    upgradeEventsEnabled: false,
   });
 
-  assert.equal(form.fields.length, 2);
-  const [level, webhook] = form.fields;
+  assert.equal(form.fields.length, 3);
+  const [level, upgradeEvents, webhook] = form.fields;
   assert.ok(level && level.type === 'select');
   assert.deepEqual(level.options, [
     { label: 'INFO', value: 'info' },
@@ -75,9 +76,18 @@ void test('logging form has a level dropdown and optional secret webhook', () =>
     { label: 'ERROR', value: 'error' },
   ]);
   assert.deepEqual(level.defaultValue, ['warn']);
+  assert.ok(upgradeEvents && upgradeEvents.type === 'boolean');
+  assert.equal(upgradeEvents.defaultValue, false);
   assert.ok(webhook && webhook.type === 'string');
   assert.equal(webhook.required, undefined);
   assert.equal(webhook.isSecret, true);
   assert.equal(webhook.scope, 'installation');
   assert.equal(webhook.defaultValue, undefined);
+});
+
+void test('logging form enables app upgrade events by default', () => {
+  const upgradeEvents = loggingConfigForm().fields[1];
+
+  assert.ok(upgradeEvents && upgradeEvents.type === 'boolean');
+  assert.equal(upgradeEvents.defaultValue, true);
 });

@@ -190,6 +190,14 @@ export function loggingConfigForm(config?: LoggingConfig): Form {
         defaultValue: [config?.level ?? 'info'],
       },
       {
+        name: 'upgradeEventsEnabled',
+        label: 'Send app upgrade events',
+        type: 'boolean',
+        defaultValue: config?.upgradeEventsEnabled ?? true,
+        helpText:
+          'Upgrade events are sent regardless of the minimum log level.',
+      },
+      {
         name: 'webhookUrl',
         label: 'Discord webhook URL',
         type: 'string',

@@ -59,7 +59,11 @@ void test('saves and removes the optional logging configuration', async (t) => {
     forms.request('/configure-logging', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ level: ['error'], webhookUrl: webhook }),
+      body: JSON.stringify({
+        level: ['error'],
+        upgradeEventsEnabled: false,
+        webhookUrl: webhook,
+      }),
     })
   );
   assert.deepEqual(await saveResponse.json(), {
@@ -71,6 +75,7 @@ void test('saves and removes the optional logging configuration', async (t) => {
   assert.deepEqual(stored, {
     level: 'error',
     webhookUrl: `${webhook}?with_components=true`,
+    upgradeEventsEnabled: '0',
   });
   assert.equal(verificationRequests, 1);
 

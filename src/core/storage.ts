@@ -76,6 +76,10 @@ export async function getLoggingConfig(): Promise<LoggingConfig | undefined> {
   return {
     level: fields.level as LoggingConfig['level'],
     webhookUrl: fields.webhookUrl,
+    upgradeEventsEnabled:
+      fields.upgradeEventsEnabled === undefined
+        ? true
+        : parseBool(fields.upgradeEventsEnabled),
   };
 }
 
@@ -83,6 +87,7 @@ export async function saveLoggingConfig(config: LoggingConfig): Promise<void> {
   await redis.hSet(LOGGING_CONFIG_KEY, {
     level: config.level,
     webhookUrl: config.webhookUrl,
+    upgradeEventsEnabled: bool(config.upgradeEventsEnabled),
   });
 }
 

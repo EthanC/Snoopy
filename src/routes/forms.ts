@@ -289,6 +289,9 @@ forms.post('/configure-logging', async (c) => {
     await requireModerator();
     const values = await c.req.json<FormValues>();
     const level = parseLogLevel(values.level);
+    const upgradeEventsEnabled =
+      values.upgradeEventsEnabled === undefined ||
+      parseBoolean(values.upgradeEventsEnabled);
     const webhookValue =
       typeof values.webhookUrl === 'string' ? values.webhookUrl.trim() : '';
     const webhookUrl = webhookValue
@@ -298,8 +301,11 @@ forms.post('/configure-logging', async (c) => {
 
     locks = await acquireMutationLocks();
     if (webhookUrl) {
-      await saveLoggingConfig({ level, webhookUrl });
-      log.info('logging_configured', { configuredLevel: level });
+      await saveLoggingConfig({ level, webhookUrl, upgradeEventsEnabled });
+      log.info('logging_configured', {
+        configuredLevel: level,
+        upgradeEventsEnabled,
+      });
       return c.json<UiResponse>(success(`Discord logging set to ${level}.`));
     }
 
