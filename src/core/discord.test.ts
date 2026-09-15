@@ -34,9 +34,12 @@ void test('sends a confirmed webhook message with mentions disabled', async () =
     return new Response('{}', { status: 200 });
   }) as typeof fetch;
 
-  assert.deepEqual(await deliverToDiscord(webhook, activity, mockFetch), {
-    ok: true,
-  });
+  assert.deepEqual(
+    await deliverToDiscord(webhook, activity, 'Snoopy', mockFetch),
+    {
+      ok: true,
+    }
+  );
   assert.match(requestUrl, /wait=true/);
   assert.match(requestUrl, /with_components=true/);
   const payload = JSON.parse(requestBody);
@@ -71,7 +74,10 @@ void test('sends a confirmed webhook message with mentions disabled', async () =
     payload.components[0].components[2].content,
     '>>> @everyone test comment'
   );
-  assert.match(payload.components[0].components[4].content, /<t:1700000000:F>/);
+  assert.equal(
+    payload.components[0].components[4].content,
+    '-# Posted <t:1700000000:F> (<t:1700000000:R>) [r/Snoopy]'
+  );
   assert.equal(payload.components[1].type, 1);
   assert.equal(payload.components[1].components[0].label, 'View on Reddit');
   assert.equal(
@@ -86,7 +92,12 @@ void test('keeps the joined-date profile component when no bio is available', as
     requestBody = String(init?.body);
     return new Response('{}', { status: 200 });
   }) as typeof fetch;
-  await deliverToDiscord(webhook, { ...activity, bio: undefined }, mockFetch);
+  await deliverToDiscord(
+    webhook,
+    { ...activity, bio: undefined },
+    'Snoopy',
+    mockFetch
+  );
   const payload = JSON.parse(requestBody);
   assert.equal(payload.components[0].components[0].components.length, 2);
   assert.equal(
@@ -108,6 +119,7 @@ void test('embeds Reddit Giphy comments without showing the placeholder', async 
       body: '![gif](giphy|YlRks3xm0Lm3IGHSFt)',
       sensitive: true,
     },
+    'Snoopy',
     mockFetch
   );
   const components = JSON.parse(requestBody).components[0].components;
@@ -140,6 +152,7 @@ void test('keeps text components around an inline Reddit Giphy comment', async (
       ...activity,
       body: 'Text above\n\n![gif](giphy|YlRks3xm0Lm3IGHSFt)\n\nText below',
     },
+    'Snoopy',
     mockFetch
   );
   const components = JSON.parse(requestBody).components[0].components;
@@ -165,6 +178,7 @@ void test('embeds Reddit-hosted images from comment bodies and post URLs', async
   await deliverToDiscord(
     webhook,
     { ...activity, body: `Text above\n\n![img](${previewUrl})\n\nText below` },
+    'Snoopy',
     mockFetch
   );
   await deliverToDiscord(
@@ -176,6 +190,7 @@ void test('embeds Reddit-hosted images from comment bodies and post URLs', async
       body: undefined,
       url: imageUrl,
     },
+    'Snoopy',
     mockFetch
   );
 
@@ -203,6 +218,7 @@ void test('includes a post title component only for posts', async () => {
   await deliverToDiscord(
     webhook,
     { ...activity, type: 'post', title: 'Example post title' },
+    'Snoopy',
     mockFetch
   );
   const payload = JSON.parse(requestBody);
@@ -244,7 +260,7 @@ void test('converts Reddit markdown for Discord', async () => {
     '|table|wow|this|',
   ].join('\n');
 
-  await deliverToDiscord(webhook, { ...activity, body }, mockFetch);
+  await deliverToDiscord(webhook, { ...activity, body }, 'Snoopy', mockFetch);
 
   assert.equal(
     JSON.parse(requestBody).components[0].components[2].content,
@@ -261,7 +277,7 @@ void test('returns Discord retry timing for a rate limit', async () => {
       status: 429,
       headers: { 'content-type': 'application/json' },
     })) as typeof fetch;
-  const result = await deliverToDiscord(webhook, activity, mockFetch);
+  const result = await deliverToDiscord(webhook, activity, 'Snoopy', mockFetch);
   assert.equal(result.ok, false);
   if (!result.ok) {
     assert.equal(result.kind, 'retry');
@@ -272,7 +288,7 @@ void test('returns Discord retry timing for a rate limit', async () => {
 void test('blocks a webhook after a permanent Discord response', async () => {
   const mockFetch = (async () =>
     new Response('', { status: 404 })) as typeof fetch;
-  const result = await deliverToDiscord(webhook, activity, mockFetch);
+  const result = await deliverToDiscord(webhook, activity, 'Snoopy', mockFetch);
   assert.equal(result.ok, false);
   if (!result.ok) assert.equal(result.kind, 'blocked');
 });
@@ -280,7 +296,7 @@ void test('blocks a webhook after a permanent Discord response', async () => {
 void test('discards one payload after a payload-specific client error', async () => {
   const mockFetch = (async () =>
     new Response('', { status: 400 })) as typeof fetch;
-  const result = await deliverToDiscord(webhook, activity, mockFetch);
+  const result = await deliverToDiscord(webhook, activity, 'Snoopy', mockFetch);
   assert.equal(result.ok, false);
   if (!result.ok) assert.equal(result.kind, 'discard');
 });
@@ -291,7 +307,7 @@ void test('blocks a forum webhook until a thread ID is configured', async () => 
       status: 400,
       headers: { 'content-type': 'application/json' },
     })) as typeof fetch;
-  const result = await deliverToDiscord(webhook, activity, mockFetch);
+  const result = await deliverToDiscord(webhook, activity, 'Snoopy', mockFetch);
   assert.equal(result.ok, false);
   if (!result.ok) assert.equal(result.kind, 'blocked');
 });
@@ -299,7 +315,7 @@ void test('blocks a forum webhook until a thread ID is configured', async () => 
 void test('retries other Discord client errors', async () => {
   const mockFetch = (async () =>
     new Response('', { status: 408 })) as typeof fetch;
-  const result = await deliverToDiscord(webhook, activity, mockFetch);
+  const result = await deliverToDiscord(webhook, activity, 'Snoopy', mockFetch);
   assert.equal(result.ok, false);
   if (!result.ok) assert.equal(result.kind, 'retry');
 });
@@ -335,6 +351,7 @@ void test('budgets markdown text within the component limit', async () => {
   await deliverToDiscord(
     webhook,
     { ...activity, body: '_'.repeat(6_000) },
+    'Snoopy',
     mockFetch
   );
   const payload = JSON.parse(requestBody);
@@ -368,6 +385,7 @@ void test('spoilers sensitive activity and strips directional controls', async (
       body: 'safe\u202Ehidden\u0000',
       permalink: 'https://example.invalid/redirected',
     },
+    'Snoopy',
     mockFetch
   );
   const payload = JSON.parse(requestBody);

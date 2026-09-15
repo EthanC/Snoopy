@@ -137,6 +137,7 @@ export async function verifyDiscordWebhook(
 export async function deliverToDiscord(
   webhookUrl: string,
   activity: RedditActivity,
+  sourceSubredditName: string,
   fetchImpl: Fetch = fetch
 ): Promise<DiscordDeliveryResult> {
   let url: URL;
@@ -172,7 +173,7 @@ export async function deliverToDiscord(
       : `### Reply to [${parentUsername}](https://reddit.com/user/${encodeURIComponent(activity.parentAuthorName || '[deleted]')})'s [${activity.parentType || 'content'}](${activityUrl(activity.parentPermalink || activity.permalink)}) in [r/${escapeMarkdown(activity.subredditName)}](https://reddit.com/r/${encodeURIComponent(activity.subredditName)}):`;
   const headerContent = `# ${displayName} ([${username}](${profileUrl}))`;
   const joinedContent = `-# Joined Reddit <t:${joinedTimestamp}:R>`;
-  const timestampContent = `-# Posted <t:${timestamp}:F> (<t:${timestamp}:R>)`;
+  const timestampContent = `-# Posted <t:${timestamp}:F> (<t:${timestamp}:R>) [r/${escapeMarkdown(sourceSubredditName)}]`;
   const sensitiveContent = activity.sensitive
     ? '-# Sensitive Reddit content. Open only if appropriate for the destination channel.'
     : undefined;

@@ -164,7 +164,11 @@ menu.post('/send-notification', async (c) => {
         ? activityFromComment(target.value, config)
         : activityFromPost(target.value, config)
     );
-    const result = await deliverToDiscord(config.webhookUrl, activity);
+    const result = await deliverToDiscord(
+      config.webhookUrl,
+      activity,
+      context.subredditName
+    );
     const state = await getState(username);
     state.webhookBlocked = !result.ok && result.kind === 'blocked';
 

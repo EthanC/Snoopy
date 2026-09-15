@@ -69,7 +69,8 @@ async function persistPollResult(
 
 async function pollLocked(
   username: string,
-  deadlineMs: number
+  deadlineMs: number,
+  sourceSubredditName: string
 ): Promise<PollUserOutcome> {
   const config = await getWatch(username);
   if (!config) {
@@ -163,7 +164,11 @@ async function pollLocked(
         backlog = true;
         break;
       }
-      const result = await deliverToDiscord(config.webhookUrl, notification);
+      const result = await deliverToDiscord(
+        config.webhookUrl,
+        notification,
+        sourceSubredditName
+      );
       if (!result.ok) {
         if (result.kind === 'discard') {
           activityRejected = true;
@@ -230,7 +235,8 @@ async function pollLocked(
 
 export async function pollUser(
   username: string,
-  deadlineMs: number
+  deadlineMs: number,
+  sourceSubredditName: string
 ): Promise<PollUserOutcome> {
   const lockToken = await acquirePollLock(username);
   if (!lockToken) {
@@ -239,13 +245,14 @@ export async function pollUser(
   }
 
   try {
-    return await pollLocked(username, deadlineMs);
+    return await pollLocked(username, deadlineMs, sourceSubredditName);
   } finally {
     await releasePollLock(username, lockToken);
   }
 }
 
 export async function pollDueWatches(
+  sourceSubredditName: string,
   startedAtMs = Date.now(),
   budgetMs = SCHEDULER_BUDGET_MS
 ): Promise<PollSummary> {
@@ -268,7 +275,7 @@ export async function pollDueWatches(
       break;
     }
     try {
-      const outcome = await pollUser(username, deadlineMs);
+      const outcome = await pollUser(username, deadlineMs, sourceSubredditName);
       if (outcome === 'deferred') {
         summary.budgetExhausted = true;
         break;

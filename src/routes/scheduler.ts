@@ -1,5 +1,9 @@
 import { Hono } from 'hono';
-import type { TaskRequest, TaskResponse } from '@devvit/web/server';
+import {
+  context,
+  type TaskRequest,
+  type TaskResponse,
+} from '@devvit/web/server';
 import { errorName, log } from '../core/logger';
 import { pollDueWatches } from '../core/poller';
 import { cleanupAllSeen } from '../core/storage';
@@ -10,7 +14,7 @@ schedulerRoutes.post('/poll-watchlist', async (c) => {
   const startedAt = Date.now();
   try {
     await c.req.json<TaskRequest>().catch(() => undefined);
-    const summary = await pollDueWatches(startedAt);
+    const summary = await pollDueWatches(context.subredditName, startedAt);
     log.info('scheduler_poll_complete', {
       selected: summary.selected,
       completed: summary.completed,

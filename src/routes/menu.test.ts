@@ -146,6 +146,8 @@ void test('manually sends selected posts and comments and marks them processed',
   assert.deepEqual(seenIds, [post.id, comment.id]);
   assert.match(payloads[0] ?? '', /Selected post/);
   assert.match(payloads[1] ?? '', /Selected comment/);
+  assert.match(payloads[0] ?? '', /\[r\/test\]/);
+  assert.match(payloads[1] ?? '', /\[r\/test\]/);
   assert.match(
     JSON.parse(payloads[1] ?? '').components[0].components[1].content,
     /Parent\\_User/
