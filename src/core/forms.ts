@@ -202,7 +202,7 @@ export function loggingConfigForm(config?: LoggingConfig): Form {
         label: 'Discord webhook URL',
         type: 'string',
         isSecret: true,
-        scope: 'installation',
+        scope: 'app',
         helpText: config
           ? 'Enter a webhook URL to update logging, or leave blank to remove it.'
           : 'Leave blank to keep Discord logging disabled.',

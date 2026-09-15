@@ -81,7 +81,7 @@ void test('logging form has a level dropdown and optional secret webhook', () =>
   assert.ok(webhook && webhook.type === 'string');
   assert.equal(webhook.required, undefined);
   assert.equal(webhook.isSecret, true);
-  assert.equal(webhook.scope, 'installation');
+  assert.equal(webhook.scope, 'app');
   assert.equal(webhook.defaultValue, undefined);
 });
 
