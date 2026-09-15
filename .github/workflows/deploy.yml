@@ -1,0 +1,40 @@
+name: Test and Deploy
+
+on: push
+
+permissions:
+  contents: read
+
+concurrency:
+  group: devvit-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          npm install --global npm@12.0.2
+          npm ci
+
+      - name: Test, upload, and install
+        env:
+          DEVVIT_AUTH_TOKEN: ${{ secrets.DEVVIT_AUTH_TOKEN }}
+          DEVVIT_SUBREDDIT: ${{ secrets.DEVVIT_SUBREDDIT }}
+        shell: bash
+        run: |
+          : "${DEVVIT_AUTH_TOKEN:?Set the DEVVIT_AUTH_TOKEN repository secret}"
+          : "${DEVVIT_SUBREDDIT:?Set the DEVVIT_SUBREDDIT repository secret}"
+          npm run deploy
+          npx devvit install "$DEVVIT_SUBREDDIT"

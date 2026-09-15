@@ -92,3 +92,18 @@ npx devvit install r/YOUR_SUBREDDIT @APPROVED_VERSION
 ```
 
 Replace `APPROVED_VERSION` with the approved version number. Publishing does not update existing installations. Run `npx devvit logs r/YOUR_SUBREDDIT` to inspect an installation's logs. See [Reddit's launch guide](https://developers.reddit.com/docs/guides/launch/launch-guide) for distribution options.
+
+### GitHub Actions
+
+[The deployment workflow](.github/workflows/deploy.yml) runs on every push, including pushes to non-default branches. It installs dependencies and runs `npm run deploy`, which runs type checks, lint, unit tests, and the build before uploading a private app version. If any check fails, the upload and installation do not run.
+
+Add these repository secrets under **Settings > Secrets and variables > Actions**:
+
+| Secret              | Value                                                                                                       |
+| ------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `DEVVIT_AUTH_TOKEN` | The complete contents of `~/.devvit/token` (`%USERPROFILE%\.devvit\token` on Windows) after `npm run login` |
+| `DEVVIT_SUBREDDIT`  | The target test subreddit name, without the `r/` prefix                                                     |
+
+Log in locally as the app owner and complete developer account setup before creating the token secret. The secret must contain the entire credential file, not just the access token printed by `devvit whoami --token`. The same account must moderate the target subreddit, which must have fewer than 200 subscribers for private versions.
+
+After upload succeeds, the workflow runs `npx devvit install "$DEVVIT_SUBREDDIT"` to install or upgrade the configured app to its latest non-prerelease version. Uploads and installations are serialized across branches because all pushes deploy to the same app and subreddit. This does not publish the app or submit it for Reddit review.
