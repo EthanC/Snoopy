@@ -3,7 +3,7 @@
 Snoopy tracks users on Reddit and sends post notifications to Discord.
 
 [![Node.js 24+](https://img.shields.io/badge/Node.js-24%2B-5FA04E?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
-[![Devvit 0.14.3](https://img.shields.io/badge/Devvit-0.14.3-FF4500?style=flat-square&logo=reddit&logoColor=white)](https://developers.reddit.com/)
+[![Devvit 0.14.8](https://img.shields.io/badge/Devvit-0.14.8-FF4500?style=flat-square&logo=reddit&logoColor=white)](https://developers.reddit.com/)
 
 ## Features
 
@@ -79,6 +79,8 @@ npm run dev -- r/YOUR_TEST_SUBREDDIT
 ```
 
 Configure the playtest through the same Reddit menus. Stopping the command does not uninstall the app.
+
+Type checks use TypeScript 7 through the `@typescript/native` alias. The `typescript` alias supplies the TypeScript 6 compatibility API required by `typescript-eslint`, following [Microsoft's side-by-side setup](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/#running-side-by-side-with-typescript-6-0).
 
 ## Release
 
