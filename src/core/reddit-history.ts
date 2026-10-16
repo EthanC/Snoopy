@@ -20,6 +20,7 @@ import {
   type WatchState,
 } from './types.ts';
 import { baselineBoundary } from './cursor.ts';
+import { postInlineMedia } from './reddit-media.ts';
 
 export const DEFAULT_AVATAR_URL =
   'https://www.redditstatic.com/avatars/defaults/v2/avatar_default_1.png';
@@ -117,6 +118,7 @@ function mapPost(post: Post, profile: WatchProfile): RedditActivity {
     createdAtMs: post.createdAt.getTime(),
     title: post.title,
     body: post.body,
+    inlineMedia: postInlineMedia(post),
     url: post.url,
     permalink: post.permalink,
   };

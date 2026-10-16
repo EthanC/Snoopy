@@ -338,6 +338,103 @@ void test('embeds every inline Reddit image in body order', async () => {
   }
 });
 
+void test('renders Reddit media IDs as inline images between the original text sections', async () => {
+  let requestBody = '';
+  const mockFetch = (async (_input: URL | RequestInfo, init?: RequestInit) => {
+    requestBody = String(init?.body);
+    return new Response('{}', { status: 200 });
+  }) as typeof fetch;
+  const first = 'https://i.redd.it/2jtgiifymrvh1.png';
+  const second =
+    'https://preview.redd.it/xu8pdwhzmrvh1.jpg?width=1080&s=example';
+  await deliverToDiscord(
+    webhook,
+    {
+      ...activity,
+      type: 'post',
+      title: 'Inline images',
+      body: 'Testing\n\n![img](2jtgiifymrvh1)\n\n123\n\n![img](xu8pdwhzmrvh1)\n\nok',
+      inlineMedia: { xu8pdwhzmrvh1: second, '2jtgiifymrvh1': first },
+      sensitive: true,
+    },
+    'Snoopy',
+    mockFetch
+  );
+  const body = JSON.parse(requestBody).components[0].components.slice(3, -2);
+  assert.deepEqual(body, [
+    { type: 10, content: '>>> Testing' },
+    {
+      type: 12,
+      items: [
+        {
+          media: { url: first },
+          description: 'Image posted by u/Example_User on Reddit.',
+          spoiler: true,
+        },
+      ],
+    },
+    { type: 10, content: '>>> 123' },
+    {
+      type: 12,
+      items: [
+        {
+          media: { url: second },
+          description: 'Image posted by u/Example_User on Reddit.',
+          spoiler: true,
+        },
+      ],
+    },
+    { type: 10, content: '>>> ok' },
+  ]);
+  assert.doesNotMatch(requestBody, /!\[img\]/);
+});
+
+void test('links unresolved media IDs back to Reddit while retaining text and available images', async () => {
+  for (const inlineMedia of [
+    undefined,
+    { available: 'https://i.redd.it/available.png' },
+  ]) {
+    let requestBody = '';
+    const mockFetch = (async (
+      _input: URL | RequestInfo,
+      init?: RequestInit
+    ) => {
+      requestBody = String(init?.body);
+      return new Response('{}', { status: 200 });
+    }) as typeof fetch;
+    await deliverToDiscord(
+      webhook,
+      {
+        ...activity,
+        type: 'post',
+        body: 'Before\n\n![img](missing)\n\nMiddle\n\n![img](available)\n\nAfter\n\n![gif](constructor)',
+        inlineMedia,
+      },
+      'Snoopy',
+      mockFetch
+    );
+    const components = JSON.parse(requestBody).components[0].components;
+    assert.match(requestBody, /Before/);
+    assert.match(requestBody, /Middle/);
+    assert.match(requestBody, /After/);
+    assert.ok(
+      requestBody.includes(
+        '[View image on Reddit](https://reddit.com/r/news/comments/test/comment/)'
+      )
+    );
+    assert.ok(
+      requestBody.includes(
+        '[View GIF on Reddit](https://reddit.com/r/news/comments/test/comment/)'
+      )
+    );
+    assert.doesNotMatch(requestBody, /!\[(?:img|gif)\]|i\.redd\.it\/missing/);
+    assert.equal(
+      components.filter((part: { type: number }) => part.type === 12).length,
+      inlineMedia ? 1 : 0
+    );
+  }
+});
+
 void test('groups adjacent images into galleries of at most ten items', async () => {
   let requestBody = '';
   const mockFetch = (async (_input: URL | RequestInfo, init?: RequestInit) => {

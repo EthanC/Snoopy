@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { reddit, type Post } from '@devvit/web/server';
 import {
+  activityFromPost,
+  activityFromPostProfile,
   collectSince,
   establishBaseline,
   fetchRedditHistory,
@@ -30,6 +32,36 @@ const config = {
   createdAtMs: 100,
   updatedAtMs: 100,
 } satisfies WatchConfig;
+
+void test('manual post notifications retain inline media URLs alongside the original body', () => {
+  const body =
+    'Testing\n\n![img](2jtgiifymrvh1)\n\n123\n\n![img](xu8pdwhzmrvh1)\n\nok';
+  const post = {
+    id: 't3_inline',
+    authorName: config.displayUsername,
+    createdAt: new Date(2_000),
+    body,
+    bodyHtml:
+      '<p>Testing</p><img src="https://i.redd.it/2jtgiifymrvh1.png"><p>123</p><img src="https://i.redd.it/xu8pdwhzmrvh1.jpg"><p>ok</p>',
+    gallery: [],
+  } as unknown as Post;
+  const profile = {
+    displayName: config.profileDisplayName,
+    avatarUrl: config.profileAvatarUrl,
+    joinedAtMs: config.profileJoinedAtMs,
+    nsfw: config.profileNsfw,
+  };
+  for (const activity of [
+    activityFromPost(post, config),
+    activityFromPostProfile(post, profile),
+  ]) {
+    assert.equal(activity.body, body);
+    assert.deepEqual(activity.inlineMedia, {
+      '2jtgiifymrvh1': 'https://i.redd.it/2jtgiifymrvh1.png',
+      xu8pdwhzmrvh1: 'https://i.redd.it/xu8pdwhzmrvh1.jpg',
+    });
+  }
+});
 
 void test('history collection stops after passing the cursor', async () => {
   async function* posts() {
@@ -109,7 +141,8 @@ void test('history uses the Reddit profile icon instead of a default Snoovatar',
     spam: false,
     subredditName: 'news',
     title: 'Title',
-    body: 'Body',
+    body: '![img](inline)',
+    bodyHtml: '<img src="https://i.redd.it/inline.png">',
     permalink: '/r/news/comments/new',
   } as unknown as Post;
   t.mock.method(reddit, 'getPostsByUser', () => listing([post]) as never);
@@ -138,4 +171,7 @@ void test('history uses the Reddit profile icon instead of a default Snoovatar',
   );
 
   assert.equal(result.activities[0]?.avatarUrl, profileIcon);
+  assert.deepEqual(result.activities[0]?.inlineMedia, {
+    inline: 'https://i.redd.it/inline.png',
+  });
 });

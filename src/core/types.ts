@@ -71,6 +71,7 @@ export type RedditActivity = {
   createdAtMs: number;
   title?: string | undefined;
   body?: string | undefined;
+  inlineMedia?: Record<string, string> | undefined;
   url?: string | undefined;
   permalink: string;
   parentId?: string | undefined;

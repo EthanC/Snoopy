@@ -1,4 +1,5 @@
 import type { RedditActivity } from './types';
+import { INLINE_MEDIA_REFERENCE } from './reddit-media.ts';
 import { normalizeWebhookUrl } from './validation.ts';
 
 export type DiscordDeliveryResult =
@@ -32,7 +33,17 @@ type BodyComponent =
   { type: 10; content: string } | { type: 12; items: MediaItem[] };
 
 function splitBody(activity: RedditActivity): BodyComponent[] {
-  const body = activity.body || '';
+  const body = (activity.body || '').replace(
+    INLINE_MEDIA_REFERENCE,
+    (_match: string, kind: string, id: string) => {
+      const url = Object.hasOwn(activity.inlineMedia ?? {}, id)
+        ? activity.inlineMedia?.[id]
+        : undefined;
+      return url
+        ? `![${kind}](${url})`
+        : `[View ${kind === 'gif' ? 'GIF' : 'image'} on Reddit](${activityUrl(activity.permalink)})`;
+    }
+  );
   const pattern = new RegExp(
     activity.type === 'comment'
       ? `${REDDIT_IMAGE.source}|${GIPHY_COMMENT.source}`
