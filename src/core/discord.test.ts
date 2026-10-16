@@ -58,9 +58,9 @@ void test('sends a confirmed webhook message with mentions disabled', async () =
     payload.components[0].components[0].accessory.media.url,
     activity.avatarUrl
   );
-  assert.match(
+  assert.equal(
     payload.components[0].components[0].components[0].content,
-    /Example Display/
+    '# Example Display ([u/Example_User](https://reddit.com/user/Example_User))'
   );
   assert.equal(
     payload.components[0].components[0].components[1].content,
@@ -72,7 +72,7 @@ void test('sends a confirmed webhook message with mentions disabled', async () =
   );
   assert.match(
     payload.components[0].components[1].content,
-    /^### Reply to \[u\/Parent\\_User\]\(https:\/\/reddit\.com\/user\/Parent_User\)'s \[comment\]\(https:\/\/reddit\.com\/r\/news\/comments\/test\/parent\/\) in \[r\/news\]\(https:\/\/reddit\.com\/r\/news\):$/
+    /^### Reply to \[u\/Parent_User\]\(https:\/\/reddit\.com\/user\/Parent_User\)'s \[comment\]\(https:\/\/reddit\.com\/r\/news\/comments\/test\/parent\/\) in \[r\/news\]\(https:\/\/reddit\.com\/r\/news\):$/
   );
   assert.equal(
     payload.components[0].components[2].content,
@@ -88,6 +88,35 @@ void test('sends a confirmed webhook message with mentions disabled', async () =
     payload.components[1].components[1].url,
     'https://github.com/EthanC/Snoopy'
   );
+});
+
+void test('preserves underscores in linked Reddit usernames', async () => {
+  for (const username of ['Example_User', '_Example_', 'Example__User']) {
+    let requestBody = '';
+    const mockFetch = (async (
+      _input: URL | RequestInfo,
+      init?: RequestInit
+    ) => {
+      requestBody = String(init?.body);
+      return new Response('{}', { status: 200 });
+    }) as typeof fetch;
+    await deliverToDiscord(
+      webhook,
+      { ...activity, authorName: username, parentAuthorName: username },
+      'Snoopy',
+      mockFetch
+    );
+    const components = JSON.parse(requestBody).components[0].components;
+    const profileLink = `[u/${username}](https://reddit.com/user/${username})`;
+    assert.equal(
+      components[0].components[0].content,
+      `# Example Display (${profileLink})`
+    );
+    assert.equal(
+      components[1].content,
+      `### Reply to ${profileLink}'s [comment](https://reddit.com/r/news/comments/test/parent/) in [r/news](https://reddit.com/r/news):`
+    );
+  }
 });
 
 void test('sends logs as confirmed plaintext messages', async () => {

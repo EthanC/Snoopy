@@ -67,6 +67,10 @@ function prepareText(
   return truncate(escapeMarkdown(sanitizeText(value)), limit);
 }
 
+function prepareLinkLabel(value: string, limit: number): string | undefined {
+  return truncate(sanitizeText(value).replace(/([\\[\]])/g, '\\$1'), limit);
+}
+
 function prepareMarkdown(
   value: string | undefined,
   limit: number
@@ -190,11 +194,11 @@ export async function deliverToDiscord(
   const profileUrl = `https://reddit.com/user/${encodeURIComponent(activity.authorName)}`;
   const displayName = prepareText(activity.displayName, 200) || 'Reddit user';
   const username =
-    prepareText(`u/${activity.authorName}`, 100) || 'u/[deleted]';
+    prepareLinkLabel(`u/${activity.authorName}`, 100) || 'u/[deleted]';
   const bio = prepareText(activity.bio, 500);
   const title = prepareText(activity.title, 600);
   const parentUsername =
-    prepareText(`u/${activity.parentAuthorName || '[deleted]'}`, 100) ||
+    prepareLinkLabel(`u/${activity.parentAuthorName || '[deleted]'}`, 100) ||
     'u/[deleted]';
   const contextContent =
     activity.type === 'post'
