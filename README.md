@@ -80,7 +80,7 @@ npm run dev -- r/YOUR_TEST_SUBREDDIT
 
 Configure the playtest through the same Reddit menus. Stopping the command does not uninstall the app.
 
-Type checks use TypeScript 7 through the `@typescript/native` alias. The `typescript` alias supplies the TypeScript 6 compatibility API required by `typescript-eslint`, following [Microsoft's side-by-side setup](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/#running-side-by-side-with-typescript-6-0).
+Type checks use TypeScript 7 directly. Linting uses Oxlint with `oxlint-tsgolint` for type-aware rules, including `typescript/no-floating-promises`. The rules are configured in [`.oxlintrc.json`](.oxlintrc.json).
 
 ## Release
 

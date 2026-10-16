@@ -10,7 +10,7 @@
     "deploy": "npm run check && devvit upload",
     "dev": "devvit playtest",
     "launch": "npm run deploy && devvit publish",
-    "lint": "eslint src",
+    "lint": "oxlint --type-aware src",
     "login": "devvit login",
     "prettier": "prettier --write .",
     "test:types": "tsc --build",
@@ -30,15 +30,12 @@
   "devDependencies": {
     "@devvit/shared-types": "0.14.8",
     "@devvit/start": "0.14.8",
-    "@eslint/js": "10.0.1",
     "@types/node": "^26.6.5",
-    "@typescript/native": "npm:typescript@7.0.2",
     "devvit": "0.14.8",
-    "eslint": "10.12.0",
-    "globals": "17.13.0",
+    "oxlint": "1.88.0",
+    "oxlint-tsgolint": "7.0.2004",
     "prettier": "3.9.10",
-    "typescript": "npm:@typescript/typescript6@6.0.2",
-    "typescript-eslint": "8.71.2",
+    "typescript": "7.0.2",
     "vite": "8.3.4"
   }
 }
