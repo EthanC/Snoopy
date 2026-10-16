@@ -14,10 +14,73 @@ export type DiscordDeliveryResult =
 type Fetch = typeof fetch;
 const IS_COMPONENTS_V2 = 1 << 15;
 const MAX_COMPONENT_TEXT_LENGTH = 4_000;
+const MAX_GALLERY_ITEMS = 10;
+// Reserve 13 of Discord's 40 components for the profile, context, footer, and buttons.
+const MAX_BODY_COMPONENTS = 27;
 const GIPHY_COMMENT = /!\[gif\]\(giphy\|([A-Za-z0-9]+)\)/i;
 const REDDIT_IMAGE =
   /!\[(?:gif|img)\]\((https:\/\/(?:preview|i)\.redd\.it\/[^\s)?#]+\.(?:gif|jpe?g|png|webp)(?:\?[^\s)]*)?)\)|(https:\/\/(?:preview|i)\.redd\.it\/[^\s)?#]+\.(?:gif|jpe?g|png|webp)(?:\?[^\s)]*)?)/i;
 export const DISCORD_TIMEOUT_MS = 10_000;
+
+type MediaItem = {
+  media: { url: string };
+  description: string;
+  spoiler: boolean;
+};
+
+type BodyComponent =
+  { type: 10; content: string } | { type: 12; items: MediaItem[] };
+
+function splitBody(activity: RedditActivity): BodyComponent[] {
+  const body = activity.body || '';
+  const pattern = new RegExp(
+    activity.type === 'comment'
+      ? `${REDDIT_IMAGE.source}|${GIPHY_COMMENT.source}`
+      : REDDIT_IMAGE.source,
+    'gi'
+  );
+  const parts: BodyComponent[] = [];
+  const mediaItem = (url: string, kind: 'Image' | 'GIF'): MediaItem => ({
+    media: { url },
+    description: `${kind} posted by u/${activity.authorName} on Reddit.`,
+    spoiler: activity.sensitive,
+  });
+  let offset = 0;
+  for (const match of body.matchAll(pattern)) {
+    const text = body.slice(offset, match.index);
+    const previous = parts.at(-1);
+    const gallery =
+      !text.trim() &&
+      previous?.type === 12 &&
+      previous.items.length < MAX_GALLERY_ITEMS
+        ? previous
+        : undefined;
+    const addedComponents = (text.trim() ? 1 : 0) + (gallery ? 0 : 1);
+    // Keep a text slot for any remainder, including images beyond the limit.
+    if (parts.length + addedComponents + 1 > MAX_BODY_COMPONENTS) break;
+    if (text.trim()) parts.push({ type: 10, content: text });
+    const imageUrl = match[1] || match[2];
+    const item = imageUrl
+      ? mediaItem(imageUrl, 'Image')
+      : mediaItem(`https://media.giphy.com/media/${match[3]}/giphy.gif`, 'GIF');
+    if (gallery) {
+      gallery.items.push(item);
+    } else {
+      parts.push({ type: 12, items: [item] });
+    }
+    offset = match.index + match[0].length;
+  }
+  const remainder = body.slice(offset);
+  if (remainder.trim()) parts.push({ type: 10, content: remainder });
+  if (!parts.some((part) => part.type === 12) && activity.type === 'post') {
+    const match = activity.url?.match(REDDIT_IMAGE);
+    const imageUrl = match?.[1] || match?.[2];
+    if (imageUrl) {
+      parts.push({ type: 12, items: [mediaItem(imageUrl, 'Image')] });
+    }
+  }
+  return parts.length ? parts : [{ type: 10, content: 'No text content.' }];
+}
 
 function sanitizeText(value: string): string {
   const normalized = value.replace(/\r\n?/g, '\n');
@@ -212,27 +275,7 @@ export async function deliverToDiscord(
   const sensitiveContent = activity.sensitive
     ? '-# Sensitive Reddit content. Open only if appropriate for the destination channel.'
     : undefined;
-  const giphyMatch =
-    activity.type === 'comment'
-      ? activity.body?.match(GIPHY_COMMENT)
-      : undefined;
-  const redditImageMatch =
-    activity.body?.match(REDDIT_IMAGE) ??
-    (activity.type === 'post' ? activity.url?.match(REDDIT_IMAGE) : undefined);
-  const mediaMatch =
-    redditImageMatch?.input === activity.body ? redditImageMatch : giphyMatch;
-  const mediaUrl = redditImageMatch
-    ? redditImageMatch[1] || redditImageMatch[2]
-    : giphyMatch
-      ? `https://media.giphy.com/media/${giphyMatch[1]}/giphy.gif`
-      : undefined;
-  const bodyParts =
-    mediaMatch?.index === undefined
-      ? [activity.body || (mediaUrl ? undefined : 'No text content.')]
-      : [
-          activity.body?.slice(0, mediaMatch.index),
-          activity.body?.slice(mediaMatch.index + mediaMatch[0].length),
-        ];
+  const bodyParts = splitBody(activity);
   const fixedLength = [
     headerContent,
     bio ? `-# ${bio}` : undefined,
@@ -245,39 +288,15 @@ export async function deliverToDiscord(
     100,
     MAX_COMPONENT_TEXT_LENGTH -
       fixedLength -
-      bodyParts.filter((part) => part?.trim()).length * 4
+      bodyParts.filter((part) => part.type === 10).length * 4
   );
-  const bodyContents = bodyParts.map((part) => {
-    if (bodyBudget < 4) return undefined;
-    const content = prepareMarkdown(part, bodyBudget);
+  const bodyComponents = bodyParts.flatMap((part): BodyComponent[] => {
+    if (part.type === 12) return [part];
+    if (bodyBudget < 4) return [];
+    const content = prepareMarkdown(part.content, bodyBudget);
     bodyBudget -= content?.length ?? 0;
-    return content;
+    return content ? [{ type: 10, content: `>>> ${content}` }] : [];
   });
-  const mediaComponent = mediaUrl
-    ? {
-        type: 12,
-        items: [
-          {
-            media: { url: mediaUrl },
-            description: `${redditImageMatch ? 'Image' : 'GIF'} posted by u/${activity.authorName} on Reddit.`,
-            spoiler: activity.sensitive,
-          },
-        ],
-      }
-    : undefined;
-  const bodyComponents = mediaComponent
-    ? [
-        ...(bodyContents[0]
-          ? [{ type: 10, content: `>>> ${bodyContents[0]}` }]
-          : []),
-        mediaComponent,
-        ...(bodyContents[1]
-          ? [{ type: 10, content: `>>> ${bodyContents[1]}` }]
-          : []),
-      ]
-    : bodyContents[0]
-      ? [{ type: 10, content: `>>> ${bodyContents[0]}` }]
-      : [];
   const containerComponents = [
     {
       type: 9,

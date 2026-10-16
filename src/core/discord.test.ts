@@ -271,6 +271,211 @@ void test('embeds Reddit-hosted images from comment bodies and post URLs', async
   );
 });
 
+void test('embeds every inline Reddit image in body order', async () => {
+  const imageUrls = [
+    'https://preview.redd.it/first.png?width=720&format=png&auto=webp&s=example',
+    'https://preview.redd.it/second.png?width=1103&format=png&auto=webp&s=example',
+    'https://i.redd.it/third.jpg',
+  ];
+  for (const type of ['post', 'comment'] as const) {
+    let requestBody = '';
+    const mockFetch = (async (
+      _input: URL | RequestInfo,
+      init?: RequestInit
+    ) => {
+      requestBody = String(init?.body);
+      return new Response('{}', { status: 200 });
+    }) as typeof fetch;
+    await deliverToDiscord(
+      webhook,
+      {
+        ...activity,
+        type,
+        title: 'Multiple inline images',
+        sensitive: true,
+        body: `First section\n\n![img](${imageUrls[0]})\n\nSecond section\n\n${imageUrls[1]}\n\nThird section\n\n![img](${imageUrls[2]})\n\nFinal text`,
+      },
+      'Snoopy',
+      mockFetch
+    );
+    const components = JSON.parse(requestBody).components[0].components;
+    assert.deepEqual(components.slice(3, -2), [
+      { type: 10, content: '>>> First section' },
+      {
+        type: 12,
+        items: [
+          {
+            media: { url: imageUrls[0] },
+            description: 'Image posted by u/Example_User on Reddit.',
+            spoiler: true,
+          },
+        ],
+      },
+      { type: 10, content: '>>> Second section' },
+      {
+        type: 12,
+        items: [
+          {
+            media: { url: imageUrls[1] },
+            description: 'Image posted by u/Example_User on Reddit.',
+            spoiler: true,
+          },
+        ],
+      },
+      { type: 10, content: '>>> Third section' },
+      {
+        type: 12,
+        items: [
+          {
+            media: { url: imageUrls[2] },
+            description: 'Image posted by u/Example_User on Reddit.',
+            spoiler: true,
+          },
+        ],
+      },
+      { type: 10, content: '>>> Final text' },
+    ]);
+  }
+});
+
+void test('groups adjacent images into galleries of at most ten items', async () => {
+  let requestBody = '';
+  const mockFetch = (async (_input: URL | RequestInfo, init?: RequestInit) => {
+    requestBody = String(init?.body);
+    return new Response('{}', { status: 200 });
+  }) as typeof fetch;
+  const imageUrls = Array.from(
+    { length: 21 },
+    (_, index) => `https://i.redd.it/image${index}.png`
+  );
+  await deliverToDiscord(
+    webhook,
+    {
+      ...activity,
+      type: 'post',
+      title: 'Adjacent images',
+      body: imageUrls.map((url) => `![img](${url})`).join('\n\n'),
+    },
+    'Snoopy',
+    mockFetch
+  );
+  const galleries = JSON.parse(requestBody).components[0].components.slice(
+    2,
+    -2
+  ) as {
+    type: number;
+    items: { media: { url: string } }[];
+  }[];
+  assert.deepEqual(
+    galleries.map((gallery) => gallery.type),
+    [12, 12, 12]
+  );
+  assert.deepEqual(
+    galleries.map((gallery) => gallery.items.length),
+    [10, 10, 1]
+  );
+  assert.deepEqual(
+    galleries.flatMap((gallery) => gallery.items.map((item) => item.media.url)),
+    imageUrls
+  );
+  assert.doesNotMatch(requestBody, /No text content|!\[img\]/);
+});
+
+void test('embeds mixed Giphy and Reddit images in comment order', async () => {
+  let requestBody = '';
+  const mockFetch = (async (_input: URL | RequestInfo, init?: RequestInit) => {
+    requestBody = String(init?.body);
+    return new Response('{}', { status: 200 });
+  }) as typeof fetch;
+  await deliverToDiscord(
+    webhook,
+    {
+      ...activity,
+      body: '![gif](giphy|first)\n\n![img](https://i.redd.it/second.png)\n\n![gif](giphy|third)',
+    },
+    'Snoopy',
+    mockFetch
+  );
+  const gallery = JSON.parse(requestBody).components[0].components[2];
+  assert.equal(gallery.type, 12);
+  assert.deepEqual(gallery.items, [
+    {
+      media: { url: 'https://media.giphy.com/media/first/giphy.gif' },
+      description: 'GIF posted by u/Example_User on Reddit.',
+      spoiler: false,
+    },
+    {
+      media: { url: 'https://i.redd.it/second.png' },
+      description: 'Image posted by u/Example_User on Reddit.',
+      spoiler: false,
+    },
+    {
+      media: { url: 'https://media.giphy.com/media/third/giphy.gif' },
+      description: 'GIF posted by u/Example_User on Reddit.',
+      spoiler: false,
+    },
+  ]);
+  assert.doesNotMatch(requestBody, /giphy\||!\[img\]/);
+});
+
+void test('bounds multi-image payloads and retains overflow images as links', async () => {
+  const imageUrls = Array.from(
+    { length: 40 },
+    (_, index) => `https://i.redd.it/image${index}.png`
+  );
+  for (const textLength of [20, 1_000]) {
+    let requestBody = '';
+    const mockFetch = (async (
+      _input: URL | RequestInfo,
+      init?: RequestInit
+    ) => {
+      requestBody = String(init?.body);
+      return new Response('{}', { status: 200 });
+    }) as typeof fetch;
+    await deliverToDiscord(
+      webhook,
+      {
+        ...activity,
+        type: 'post',
+        title: 'Many inline images',
+        sensitive: true,
+        body: imageUrls
+          .map((url) => `${'x'.repeat(textLength)}\n\n${url}`)
+          .join('\n\n'),
+      },
+      'Snoopy',
+      mockFetch
+    );
+    type Component = {
+      content?: string;
+      components?: Component[];
+      accessory?: Component;
+      items?: { media: { url: string } }[];
+    };
+    const allComponents: Component[] = [];
+    const visit = (component: Component): void => {
+      allComponents.push(component);
+      component.components?.forEach(visit);
+      if (component.accessory) visit(component.accessory);
+    };
+    const payload = JSON.parse(requestBody) as { components: Component[] };
+    payload.components.forEach(visit);
+    assert.ok(allComponents.length <= 40);
+    const text = allComponents
+      .map((component) => component.content || '')
+      .join('');
+    assert.ok(text.length <= 4_000);
+    const embeddedUrls = allComponents.flatMap(
+      (component) => component.items?.map((item) => item.media.url) || []
+    );
+    assert.ok(embeddedUrls.length > 1);
+    assert.deepEqual(embeddedUrls, imageUrls.slice(0, embeddedUrls.length));
+    if (textLength === 20) {
+      assert.ok(text.includes(imageUrls.at(-1) ?? ''));
+    }
+  }
+});
+
 void test('includes a post title component only for posts', async () => {
   let requestBody = '';
   const mockFetch = (async (_input: URL | RequestInfo, init?: RequestInit) => {
